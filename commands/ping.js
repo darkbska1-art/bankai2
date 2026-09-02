@@ -67,7 +67,7 @@ module.exports = {
             }
 
             const embed = new EmbedBuilder()
-                .setTitle("🏓 Bankai • Ping Sistemi")
+                .setTitle("🏓 Bankai • Ping ")
                 .setDescription(
                     "Botun bağlantı ve performans bilgileri aşağıda gösteriliyor."
                 )

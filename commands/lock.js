@@ -1,76 +1,78 @@
 
 // =====================================================
-// commands/unlock.js
+// commands/lock.js
 // =====================================================
 
 const {
-    PermissionFlagsBits: UnlockPermissions,
-    EmbedBuilder: UnlockEmbed
+    PermissionFlagsBits,
+    EmbedBuilder
 } = require("discord.js");
 
 module.exports = {
-    name: "unlock",
-    aliases: ["kilitaç", "kilidiac", "aç"],
+    name: "lock",
+    aliases: ["kilit", "kilitle"],
 
     async execute(message) {
 
+        // Yetki kontrolü
         if (!message.member.permissions.has(
-            UnlockPermissions.ManageChannels
+            PermissionFlagsBits.ManageChannels
         )) {
             return message.reply(
                 "❌ **Kanalları Yönet** yetkin yok."
             );
         }
 
+        const channel = message.channel;
         const everyone = message.guild.roles.everyone;
 
         try {
 
-            // @everyone için kanal kilidini kontrol et
+            // @everyone'ın bu kanaldaki özel iznini al
             const overwrite =
-                message.channel.permissionOverwrites.cache.get(
+                channel.permissionOverwrites.cache.get(
                     everyone.id
                 );
 
+            // Zaten kilitli mi?
             const isLocked =
-                overwrite &&
-                overwrite.deny.has(
-                    UnlockPermissions.SendMessages
+                overwrite?.deny.has(
+                    PermissionFlagsBits.SendMessages
                 );
 
-            // Kanal zaten açık
-            if (!isLocked) {
+            if (isLocked) {
                 return message.reply(
-                    "🔓 Bu kanal zaten **açık**."
+                    "🔒 Bu kanal zaten **kilitli**."
                 );
             }
 
-            // Kilidi aç
-            await message.channel.permissionOverwrites.edit(
+            // Kanalı kilitle
+            await channel.permissionOverwrites.edit(
                 everyone,
                 {
-                    SendMessages: null
+                    SendMessages: false
                 }
             );
 
-            const embed = new UnlockEmbed()
+            const embed = new EmbedBuilder()
                 .setColor(0x000000)
-                .setTitle("🔓 Kanalın Kilidi Açıldı")
+                .setTitle("🔒 Kanal Kilitlendi")
                 .setDescription(
-                    `Bu kanalın kilidi **${message.author}** tarafından açıldı.`
+                    `Bu kanal **${message.author}** tarafından kilitlendi.\n\n` +
+                    `🔒 Üyeler artık bu kanala mesaj gönderemez.`
                 )
                 .setTimestamp();
 
-            await message.reply({
+            return message.reply({
                 embeds: [embed]
             });
 
         } catch (error) {
 
-            console.error("UNLOCK HATASI:", error);
+            console.error("❌ LOCK HATASI:", error);
 
             return message.reply(
-                "❌ Kanalın kilidi açılırken bir hata oluştu."
+                "❌ Kanal kilitlenirken bir hata oluştu."
             );
         }
     }

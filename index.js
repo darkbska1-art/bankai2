@@ -176,6 +176,13 @@ client.once("clientReady", async () => {
     console.log(
         `📦 ${client.commands.size} komut/alias yüklendi.`
     );
+    client.once("clientReady", () => {
+    console.log(`✅ ${client.user.tag} olarak giriş yapıldı!`);
+
+    client.user.setActivity("B!yardım/b!yardım", {
+        type: 2
+    });
+});
 
    
 

@@ -1,3 +1,4 @@
+
 const {
     PermissionFlagsBits,
     EmbedBuilder
@@ -11,10 +12,11 @@ const {
 module.exports = {
 
     name: "seviyesistem",
-    aliases: ["levelayar", "level"] ,
+    aliases: ["levelayar", "level"],
 
     async execute(message, args) {
 
+        // Yetki kontrolü
         if (!message.member.permissions.has(
             PermissionFlagsBits.ManageGuild
         )) {
@@ -23,48 +25,80 @@ module.exports = {
             );
         }
 
-        const durum =
-            args[0]?.toLowerCase();
+        const durum = args[0]?.toLowerCase();
 
+        // Kullanım kontrolü
         if (
             durum !== "aç" &&
             durum !== "kapat"
         ) {
             return message.reply(
                 "❌ Kullanım:\n\n" +
-                "`B!seviyesistem aç`\n" +
+                "`B!seviyesistem aç #kanal`\n" +
                 "`B!seviyesistem kapat`"
             );
         }
 
-        const data =
-            loadData();
+        const data = loadData();
 
+        // Sunucu verisi yoksa oluştur
         if (!data[message.guild.id]) {
             data[message.guild.id] = {
-                enabled: true,
+                enabled: false,
+                channelId: null,
                 users: {}
             };
         }
 
-        data[message.guild.id].enabled =
-            durum === "aç";
+        // KAPAT
+        if (durum === "kapat") {
 
-        saveData(data);
+            data[message.guild.id].enabled = false;
 
-        const embed =
-            new EmbedBuilder()
+            saveData(data);
+
+            const embed = new EmbedBuilder()
                 .setColor(0x000000)
                 .setTitle("⭐ Level Sistemi")
                 .setDescription(
-                    durum === "aç"
-                        ? "🟢 Level sistemi **açıldı**."
-                        : "🔴 Level sistemi **kapatıldı**."
+                    "🔴 Level sistemi **kapatıldı**."
                 )
                 .setTimestamp();
+
+            return message.reply({
+                embeds: [embed]
+            });
+        }
+
+        // AÇ
+        const kanal =
+            message.mentions.channels.first();
+
+        if (!kanal) {
+            return message.reply(
+                "❌ Level mesajlarının gönderileceği kanalı belirtmelisin.\n\n" +
+                "Örnek: `B!seviyesistem aç #level`"
+            );
+        }
+
+        // Kanalı kaydet
+        data[message.guild.id].enabled = true;
+        data[message.guild.id].channelId = kanal.id;
+
+        saveData(data);
+
+        const embed = new EmbedBuilder()
+            .setColor(0x000000)
+            .setTitle("⭐ Level Sistemi")
+            .setDescription(
+                `🟢 Level sistemi **açıldı**.\n\n` +
+                `📢 Level mesajları ${kanal} kanalına gönderilecek.`
+            )
+            .setTimestamp();
 
         await message.reply({
             embeds: [embed]
         });
     }
 };
+

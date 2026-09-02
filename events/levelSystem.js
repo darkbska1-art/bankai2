@@ -64,6 +64,31 @@ function startLevelSystem(client) {
         const guildId = message.guild.id;
         const userId = message.author.id;
 
+        const data = loadData();
+
+        // Sunucu yoksa oluştur
+        if (!data[guildId]) {
+            data[guildId] = {
+                enabled: false,
+                channelId: null,
+                users: {}
+            };
+
+            saveData(data);
+        }
+
+        const guildData = data[guildId];
+
+        // Sistem kapalıysa XP verme
+        if (!guildData.enabled) {
+            return;
+        }
+
+        // Level kanalı ayarlanmamışsa XP verme
+        if (!guildData.channelId) {
+            return;
+        }
+
         // Kullanıcı + sunucu özel cooldown
         const cooldownKey = `${guildId}-${userId}`;
 
@@ -77,31 +102,16 @@ function startLevelSystem(client) {
 
         cooldowns.set(cooldownKey, now);
 
-        const data = loadData();
-
-        // Sunucu yoksa oluştur
-        if (!data[guildId]) {
-            data[guildId] = {
-                enabled: true,
-                users: {}
-            };
-        }
-
-        // Sistem kapalıysa XP verme
-        if (!data[guildId].enabled) {
-            return;
-        }
-
         // Kullanıcı yoksa oluştur
-        if (!data[guildId].users[userId]) {
-            data[guildId].users[userId] = {
+        if (!guildData.users[userId]) {
+            guildData.users[userId] = {
                 xp: 0,
                 level: 0,
                 totalXp: 0
             };
         }
 
-        const user = data[guildId].users[userId];
+        const user = guildData.users[userId];
 
         // 15-30 XP
         const gainedXp =
@@ -125,15 +135,40 @@ function startLevelSystem(client) {
         // Verileri kaydet
         saveData(data);
 
-        // Level atladıysa mesaj gönder
-        if (leveledUp) {
-
-            await message.channel.send(
-                `🎉 Tebrikler ${message.author}! ` +
-                `**Seviye ${user.level}** oldun! 🏆`
-            ).catch(() => {});
-
+        // Level atlamadıysa devam etme
+        if (!leveledUp) {
+            return;
         }
+
+        // Ayarlanan level kanalını bul
+        const levelChannel =
+            message.guild.channels.cache.get(
+                guildData.channelId
+            );
+
+        // Kanal bulunamazsa
+        if (!levelChannel) {
+            console.error(
+                `❌ Level kanalı bulunamadı: ${guildData.channelId}`
+            );
+            return;
+        }
+
+        // Botun kanala mesaj gönderme yetkisi var mı?
+        if (!levelChannel.isTextBased()) {
+            return;
+        }
+
+        // Level mesajını ayarlanan kanala gönder
+        await levelChannel.send(
+            `🎉 Tebrikler ${message.author}! ` +
+            `**Seviye ${user.level}** oldun! 🏆`
+        ).catch(error => {
+            console.error(
+                "❌ Level mesajı gönderilemedi:",
+                error
+            );
+        });
 
     });
 

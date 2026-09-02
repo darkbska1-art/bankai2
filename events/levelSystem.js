@@ -337,60 +337,6 @@ function startLevelSystem(client) {
     });
 }
 
-// =====================================================
-// KULLANICIYA ÖZEL DM
-// =====================================================
-
-const dmEmbed = new EmbedBuilder()
-    .setColor(0x000000)
-    .setTitle("🎉 LEVEL ATLADIN!")
-    .setDescription(
-        `Tebrikler **${message.author.username}**! 🎊\n\n` +
-        `Biraz önce **${message.guild.name}** sunucusunda ` +
-        `level atladın! 🚀`
-    )
-    .addFields(
-        {
-            name: "⭐ Yeni Seviyen",
-            value: `**Seviye ${user.level}**`,
-            inline: true
-        },
-        {
-            name: "✨ Kazanılan XP",
-            value: `+${gainedXp} XP`,
-            inline: true
-        },
-        {
-            name: "🏆 Toplam XP",
-            value: `${totalXp} XP`,
-            inline: true
-        },
-        {
-            name: "📊 Sonraki Seviye",
-            value:
-                `${xpBar}\n` +
-                `**${currentXp} / ${nextXp} XP**`,
-            inline: false
-        }
-    )
-    .setThumbnail(
-        message.author.displayAvatarURL({
-            size: 256
-        })
-    )
-    .setFooter({
-        text: `${message.guild.name} • Level Sistemi`
-    })
-    .setTimestamp();
-
-await message.author.send({
-    embeds: [dmEmbed]
-}).catch(() => {
-    console.log(
-        `⚠️ ${message.author.tag} kullanıcısının DM'si kapalı.`
-    );
-});
-
 
 
 // =====================================================

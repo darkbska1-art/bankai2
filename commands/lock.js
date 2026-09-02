@@ -1,40 +1,63 @@
 
+// =====================================================
+// commands/unlock.js
+// =====================================================
+
 const {
-    PermissionFlagsBits: LockPermissions,
-    EmbedBuilder: LockEmbed
+    PermissionFlagsBits: UnlockPermissions,
+    EmbedBuilder: UnlockEmbed
 } = require("discord.js");
 
 module.exports = {
-    name: "lock",
-    aliases: ["kilit", "kilitle"],
+    name: "unlock",
+    aliases: ["kilitaç", "kilidiac", "aç"],
 
     async execute(message) {
 
         if (!message.member.permissions.has(
-            LockPermissions.ManageChannels
+            UnlockPermissions.ManageChannels
         )) {
             return message.reply(
                 "❌ **Kanalları Yönet** yetkin yok."
             );
         }
 
-        const everyone =
-            message.guild.roles.everyone;
+        const everyone = message.guild.roles.everyone;
 
         try {
 
+            // @everyone için kanal kilidini kontrol et
+            const overwrite =
+                message.channel.permissionOverwrites.cache.get(
+                    everyone.id
+                );
+
+            const isLocked =
+                overwrite &&
+                overwrite.deny.has(
+                    UnlockPermissions.SendMessages
+                );
+
+            // Kanal zaten açık
+            if (!isLocked) {
+                return message.reply(
+                    "🔓 Bu kanal zaten **açık**."
+                );
+            }
+
+            // Kilidi aç
             await message.channel.permissionOverwrites.edit(
                 everyone,
                 {
-                    SendMessages: false
+                    SendMessages: null
                 }
             );
 
-            const embed = new LockEmbed()
+            const embed = new UnlockEmbed()
                 .setColor(0x000000)
-                .setTitle("🔒 Kanal Kilitlendi")
+                .setTitle("🔓 Kanalın Kilidi Açıldı")
                 .setDescription(
-                    `Bu kanal **${message.author}** tarafından kilitlendi.`
+                    `Bu kanalın kilidi **${message.author}** tarafından açıldı.`
                 )
                 .setTimestamp();
 
@@ -43,10 +66,13 @@ module.exports = {
             });
 
         } catch (error) {
-            console.error("LOCK HATASI:", error);
+
+            console.error("UNLOCK HATASI:", error);
+
             return message.reply(
-                "❌ Kanal kilitlenirken bir hata oluştu."
+                "❌ Kanalın kilidi açılırken bir hata oluştu."
             );
         }
     }
 };
+

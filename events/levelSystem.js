@@ -2,34 +2,50 @@
 const fs = require("fs");
 const path = require("path");
 
+const {
+    EmbedBuilder
+} = require("discord.js");
+
 const dataDir = path.join(__dirname, "..", "data");
 const dataFile = path.join(dataDir, "levels.json");
 
-// data klasörü yoksa oluştur
+// =====================================================
+// DOSYA SİSTEMİ
+// =====================================================
+
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, {
         recursive: true
     });
 }
 
-// levels.json yoksa oluştur
 if (!fs.existsSync(dataFile)) {
     fs.writeFileSync(dataFile, "{}", "utf8");
 }
 
-// Verileri yükle
+// =====================================================
+// VERİLERİ YÜKLE
+// =====================================================
+
 function loadData() {
     try {
         return JSON.parse(
             fs.readFileSync(dataFile, "utf8")
         );
     } catch (error) {
-        console.error("❌ Level verileri okunamadı:", error);
+        console.error(
+            "❌ Level verileri okunamadı:",
+            error
+        );
+
         return {};
     }
 }
 
-// Verileri kaydet
+// =====================================================
+// VERİLERİ KAYDET
+// =====================================================
+
 function saveData(data) {
     try {
         fs.writeFileSync(
@@ -38,24 +54,36 @@ function saveData(data) {
             "utf8"
         );
     } catch (error) {
-        console.error("❌ Level verileri kaydedilemedi:", error);
+        console.error(
+            "❌ Level verileri kaydedilemedi:",
+            error
+        );
     }
 }
 
-// Seviye için gereken XP
+// =====================================================
+// XP GEREKSİNİMİ
+// =====================================================
+
 function xpNeeded(level) {
     return 100 + (level * 75);
 }
 
-// Kullanıcı cooldownları
+// =====================================================
+// COOLDOWN
+// =====================================================
+
 const cooldowns = new Map();
 
-// Level sistemini başlat
+// =====================================================
+// LEVEL SİSTEMİ
+// =====================================================
+
 function startLevelSystem(client) {
 
     client.on("messageCreate", async message => {
 
-        // DM'leri geç
+        // DM geç
         if (!message.guild) return;
 
         // Botlara XP verme
@@ -64,10 +92,15 @@ function startLevelSystem(client) {
         const guildId = message.guild.id;
         const userId = message.author.id;
 
+        // =================================================
+        // VERİLER
+        // =================================================
+
         const data = loadData();
 
         // Sunucu yoksa oluştur
         if (!data[guildId]) {
+
             data[guildId] = {
                 enabled: false,
                 channelId: null,
@@ -79,31 +112,40 @@ function startLevelSystem(client) {
 
         const guildData = data[guildId];
 
-        // Sistem kapalıysa XP verme
-        if (!guildData.enabled) {
-            return;
-        }
+        // Sistem kapalıysa
+        if (!guildData.enabled) return;
 
-        // Level kanalı ayarlanmamışsa XP verme
-        if (!guildData.channelId) {
-            return;
-        }
+        // Kanal ayarlanmamışsa
+        if (!guildData.channelId) return;
 
-        // Kullanıcı + sunucu özel cooldown
-        const cooldownKey = `${guildId}-${userId}`;
+        // =================================================
+        // COOLDOWN
+        // =================================================
+
+        const cooldownKey =
+            `${guildId}-${userId}`;
 
         const now = Date.now();
-        const last = cooldowns.get(cooldownKey) || 0;
 
-        // 10 saniye cooldown
+        const last =
+            cooldowns.get(cooldownKey) || 0;
+
+        // 10 saniye
         if (now - last < 10000) {
             return;
         }
 
-        cooldowns.set(cooldownKey, now);
+        cooldowns.set(
+            cooldownKey,
+            now
+        );
 
-        // Kullanıcı yoksa oluştur
+        // =================================================
+        // KULLANICI
+        // =================================================
+
         if (!guildData.users[userId]) {
+
             guildData.users[userId] = {
                 xp: 0,
                 level: 0,
@@ -111,19 +153,33 @@ function startLevelSystem(client) {
             };
         }
 
-        const user = guildData.users[userId];
+        const user =
+            guildData.users[userId];
 
-        // 15-30 XP
+        // =================================================
+        // XP KAZAN
+        // =================================================
+
         const gainedXp =
-            Math.floor(Math.random() * 16) + 15;
+            Math.floor(
+                Math.random() * 16
+            ) + 15;
+
+        const oldLevel =
+            user.level;
 
         user.xp += gainedXp;
         user.totalXp += gainedXp;
 
+        // =================================================
+        // LEVEL KONTROLÜ
+        // =================================================
+
         let leveledUp = false;
 
-        // Seviye kontrolü
-        while (user.xp >= xpNeeded(user.level)) {
+        while (
+            user.xp >= xpNeeded(user.level)
+        ) {
 
             user.xp -= xpNeeded(user.level);
 
@@ -132,49 +188,159 @@ function startLevelSystem(client) {
             leveledUp = true;
         }
 
-        // Verileri kaydet
+        // =================================================
+        // KAYDET
+        // =================================================
+
         saveData(data);
 
         // Level atlamadıysa devam etme
-        if (!leveledUp) {
-            return;
-        }
+        if (!leveledUp) return;
 
-        // Ayarlanan level kanalını bul
+        // =================================================
+        // LEVEL KANALINI BUL
+        // =================================================
+
         const levelChannel =
             message.guild.channels.cache.get(
                 guildData.channelId
             );
 
-        // Kanal bulunamazsa
         if (!levelChannel) {
+
             console.error(
                 `❌ Level kanalı bulunamadı: ${guildData.channelId}`
             );
+
             return;
         }
 
-        // Botun kanala mesaj gönderme yetkisi var mı?
         if (!levelChannel.isTextBased()) {
             return;
         }
 
-        // Level mesajını ayarlanan kanala gönder
-        await levelChannel.send(
-            `🎉 Tebrikler ${message.author}! ` +
-            `**Seviye ${user.level}** oldun! 🏆`
-        ).catch(error => {
-            console.error(
-                "❌ Level mesajı gönderilemedi:",
-                error
+        // =================================================
+        // YENİ LEVEL XP
+        // =================================================
+
+        const nextXp =
+            xpNeeded(user.level);
+
+        const currentXp =
+            user.xp;
+
+        const totalXp =
+            user.totalXp;
+
+        // XP ilerleme yüzdesi
+        const percentage =
+            Math.min(
+                Math.floor(
+                    (currentXp / nextXp) * 100
+                ),
+                100
             );
-        });
+
+        // =================================================
+        // XP BAR
+        // =================================================
+
+        const barSize = 10;
+
+        const filled =
+            Math.floor(
+                (percentage / 100) * barSize
+            );
+
+        const empty =
+            barSize - filled;
+
+        const xpBar =
+            "🟩".repeat(filled) +
+            "⬜".repeat(empty);
+
+        // =================================================
+        // LEVEL EMBED
+        // =================================================
+
+        const embed =
+            new EmbedBuilder()
+                .setColor(0x000000)
+                .setAuthor({
+                    name:
+                        message.author.username,
+                    iconURL:
+                        message.author.displayAvatarURL({
+                            size: 128
+                        })
+                })
+                .setTitle("🎉 LEVEL ATLADIN!")
+                .setDescription(
+                    `${message.author} tebrikler! 🎊\n\n` +
+                    `⭐ Yeni seviyen: **Seviye ${user.level}**`
+                )
+                .addFields(
+                    {
+                        name: "📈 Seviye",
+                        value:
+                            `**${oldLevel}** ➜ **${user.level}**`,
+                        inline: true
+                    },
+                    {
+                        name: "✨ Kazanılan XP",
+                        value:
+                            `+${gainedXp} XP`,
+                        inline: true
+                    },
+                    {
+                        name: "🏆 Toplam XP",
+                        value:
+                            `${totalXp} XP`,
+                        inline: true
+                    },
+                    {
+                        name: "📊 Sonraki Seviye",
+                        value:
+                            `${xpBar}\n` +
+                            `**${currentXp} / ${nextXp} XP** (${percentage}%)`,
+                        inline: false
+                    }
+                )
+                .setThumbnail(
+                    message.author.displayAvatarURL({
+                        size: 256
+                    })
+                )
+                .setFooter({
+                    text:
+                        `${message.guild.name} • Level Sistemi`
+                })
+                .setTimestamp();
+
+        // =================================================
+        // MESAJI GÖNDER
+        // =================================================
+
+        await levelChannel
+            .send({
+                embeds: [embed]
+            })
+            .catch(error => {
+
+                console.error(
+                    "❌ Level mesajı gönderilemedi:",
+                    error
+                );
+
+            });
 
     });
-
 }
 
-// Komutların kullanacağı yardımcılar
+// =====================================================
+// EXPORT
+// =====================================================
+
 module.exports = startLevelSystem;
 
 module.exports.loadData = loadData;

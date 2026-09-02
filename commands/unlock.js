@@ -1,3 +1,4 @@
+
 // =====================================================
 // commands/unlock.js
 // =====================================================
@@ -21,11 +22,30 @@ module.exports = {
             );
         }
 
-        const everyone =
-            message.guild.roles.everyone;
+        const everyone = message.guild.roles.everyone;
 
         try {
 
+            // @everyone için kanal kilidini kontrol et
+            const overwrite =
+                message.channel.permissionOverwrites.cache.get(
+                    everyone.id
+                );
+
+            const isLocked =
+                overwrite &&
+                overwrite.deny.has(
+                    UnlockPermissions.SendMessages
+                );
+
+            // Kanal zaten açık
+            if (!isLocked) {
+                return message.reply(
+                    "🔓 Bu kanal zaten **açık**."
+                );
+            }
+
+            // Kilidi aç
             await message.channel.permissionOverwrites.edit(
                 everyone,
                 {
@@ -46,10 +66,13 @@ module.exports = {
             });
 
         } catch (error) {
+
             console.error("UNLOCK HATASI:", error);
+
             return message.reply(
                 "❌ Kanalın kilidi açılırken bir hata oluştu."
             );
         }
     }
 };
+

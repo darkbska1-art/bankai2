@@ -114,7 +114,7 @@ module.exports = {
                     ["boostkanal", "boost kanalını ayarlar."],
                     ["boostkapat", "boost mesajını devre dışı bırakır."],
                     ["seviyesistem", "seviye sistemini ayarlar."],
-                    ["modlog", "log kanalını ayarlar."],
+                    
                 ]
             }
         };

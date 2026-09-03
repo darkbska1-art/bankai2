@@ -5,206 +5,267 @@ const {
 } = require("discord.js");
 
 const {
+    getModLog,
     setModLog,
-    disableModLog,
-    getModLog
+    disableModLog
 } = require("../events/modlog");
 
 module.exports = {
+
     name: "modlog",
-    aliases: ["moderasyonlog", "modlogayar"],
+
+    aliases: [
+        "mod-log",
+        "log"
+    ],
 
     async execute(message, args) {
 
-        if (!message.member.permissions.has(
-            PermissionFlagsBits.ManageGuild
-        )) {
+        // =====================================================
+        // 🔐 YETKİ
+        // =====================================================
+
+        if (
+            !message.member.permissions.has(
+                PermissionFlagsBits.ManageGuild
+            )
+        ) {
             return message.reply(
-                "❌ Bu komut için **Sunucuyu Yönet** yetkisi gerekli."
+                "❌ Bu komutu kullanmak için **Sunucuyu Yönet** yetkisine sahip olmalısın."
             );
         }
 
-        const sub = args[0]?.toLowerCase();
+        // =====================================================
+        // 📊 DURUM
+        // =====================================================
 
-        // ==============================
-        // KAPAT
-        // ==============================
+        if (
+            !args[0] ||
+            args[0].toLowerCase() === "durum"
+        ) {
 
-        if (sub === "kapat") {
+            const settings =
+                getModLog(
+                    message.guild.id
+                );
 
-            disableModLog(message.guild.id);
+            const channels =
+                settings.channels;
 
-            return message.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(0x000000)
-                        .setTitle("🛡️ ModLog Kapatıldı")
-                        .setDescription(
-                            "Bu sunucudaki ModLog sistemi kapatıldı."
-                        )
-                        .setTimestamp()
-                ]
-            });
-        }
+            const embed =
+                new EmbedBuilder()
+                    .setColor(
+                        settings.enabled
+                            ? 0x57F287
+                            : 0xED4245
+                    )
+                    .setTitle(
+                        "🛡️ ModLog Durumu"
+                    )
+                    .setDescription(
+                        settings.enabled
+                            ? "🟢 ModLog sistemi aktif."
+                            : "🔴 ModLog sistemi kapalı."
+                    )
+                    .addFields(
+                        {
+                            name: "🛡️ Moderasyon",
+                            value:
+                                channels.moderation
+                                    ? `<#${channels.moderation}>`
+                                    : "❌ Ayarlanmadı",
+                            inline: true
+                        },
 
-        // ==============================
-        // DURUM
-        // ==============================
+                        {
+                            name: "💬 Mesajlar",
+                            value:
+                                channels.messages
+                                    ? `<#${channels.messages}>`
+                                    : "❌ Ayarlanmadı",
+                            inline: true
+                        },
 
-        if (!sub || sub === "durum") {
+                        {
+                            name: "👥 Üyeler",
+                            value:
+                                channels.members
+                                    ? `<#${channels.members}>`
+                                    : "❌ Ayarlanmadı",
+                            inline: true
+                        },
 
-            const settings = getModLog(message.guild.id);
-
-            const channels = settings.channels || {};
-
-            const embed = new EmbedBuilder()
-                .setColor(0x000000)
-                .setTitle("🛡️ ModLog Ayarları")
-                .addFields(
-                    {
-                        name: "📊 Durum",
-                        value: settings.enabled
-                            ? "🟢 Açık"
-                            : "🔴 Kapalı",
-                        inline: true
-                    },
-                    {
-                        name: "🛡️ Moderasyon",
-                        value: channels.moderation
-                            ? `<#${channels.moderation}>`
-                            : "Ayarlanmadı",
-                        inline: true
-                    },
-                    {
-                        name: "🗑️ Mesaj",
-                        value: channels.messages
-                            ? `<#${channels.messages}>`
-                            : "Ayarlanmadı",
-                        inline: true
-                    },
-                    {
-                        name: "👥 Üye",
-                        value: channels.members
-                            ? `<#${channels.members}>`
-                            : "Ayarlanmadı",
-                        inline: true
-                    },
-                    {
-                        name: "🏠 Sunucu",
-                        value: channels.server
-                            ? `<#${channels.server}>`
-                            : "Ayarlanmadı",
-                        inline: true
-                    }
-                )
-                .setFooter({
-                    text: `${message.guild.name} • ModLog`
-                })
-                .setTimestamp();
+                        {
+                            name: "🌐 Sunucu",
+                            value:
+                                channels.server
+                                    ? `<#${channels.server}>`
+                                    : "❌ Ayarlanmadı",
+                            inline: true
+                        }
+                    )
+                    .setTimestamp();
 
             return message.reply({
                 embeds: [embed]
             });
         }
 
-        // ==============================
-        // KANAL AYARLAMA
-        // ==============================
+        // =====================================================
+        // ❌ KAPAT
+        // =====================================================
+
+        if (
+            args[0].toLowerCase() ===
+            "kapat"
+        ) {
+
+            disableModLog(
+                message.guild.id
+            );
+
+            return message.reply(
+                "🔴 **ModLog sistemi kapatıldı.**"
+            );
+        }
+
+        // =====================================================
+        // 📌 TÜR BELİRLE
+        // =====================================================
+
+        const type =
+            args[0].toLowerCase();
 
         const types = {
+
             moderation: "moderation",
-            mod: "moderation",
             moderasyon: "moderation",
+            mod: "moderation",
 
             message: "messages",
             messages: "messages",
             mesaj: "messages",
+            mesajlar: "messages",
 
             member: "members",
             members: "members",
             uye: "members",
             üye: "members",
+            üyeler: "members",
 
             server: "server",
             sunucu: "server"
         };
 
-        const type = types[sub];
+        const selectedType =
+            types[type];
 
-        if (!type) {
+        if (!selectedType) {
+
             return message.reply(
                 "❌ Geçersiz ModLog türü.\n\n" +
-                "**Kullanım:**\n" +
-                "`B!modlog durum`\n" +
+                "Kullanım:\n" +
                 "`B!modlog moderation #kanal`\n" +
                 "`B!modlog message #kanal`\n" +
                 "`B!modlog member #kanal`\n" +
                 "`B!modlog server #kanal`\n" +
+                "`B!modlog durum`\n" +
                 "`B!modlog kapat`"
             );
         }
 
-        const channel = message.mentions.channels.first();
+        // =====================================================
+        // 📺 KANAL
+        // =====================================================
+
+        const channel =
+            message.mentions.channels.first();
 
         if (!channel) {
+
             return message.reply(
                 "❌ Bir kanal etiketlemelisin.\n\n" +
-                `Örnek: \`B!modlog ${sub} #mod-log\``
+                `Örnek: \`B!modlog ${type} #log\``
             );
         }
 
-        if (!channel.isTextBased()) {
+        if (
+            !channel.isTextBased()
+        ) {
+
             return message.reply(
-                "❌ Bu kanal mesaj gönderilebilen bir kanal değil."
+                "❌ Bu kanal bir yazı kanalı değil."
             );
         }
 
-        const botMember = message.guild.members.me;
+        // =====================================================
+        // 🤖 BOT YETKİLERİ
+        // =====================================================
 
-        const permissions = channel.permissionsFor(botMember);
+        const botMember =
+            message.guild.members.me;
 
-        if (!permissions?.has(
-            PermissionFlagsBits.SendMessages
-        )) {
+        if (!botMember) {
             return message.reply(
-                "❌ Botun bu kanala **Mesaj Gönder** yetkisi yok."
+                "❌ Bot bilgisi alınamadı."
             );
         }
 
-        if (!permissions?.has(
-            PermissionFlagsBits.EmbedLinks
-        )) {
+        const permissions =
+            channel.permissionsFor(
+                botMember
+            );
+
+        if (
+            !permissions?.has(
+                PermissionFlagsBits.SendMessages
+            )
+        ) {
+
             return message.reply(
-                "❌ Botun bu kanalda **Bağlantıları Yerleştir** yetkisi yok."
+                "❌ Botun bu kanala **Mesaj Gönderme** yetkisi yok."
             );
         }
+
+        if (
+            !permissions?.has(
+                PermissionFlagsBits.EmbedLinks
+            )
+        ) {
+
+            return message.reply(
+                "❌ Botun bu kanala **Bağlantıları Yerleştir** yetkisi yok."
+            );
+        }
+
+        // =====================================================
+        // 💾 KAYDET
+        // =====================================================
 
         setModLog(
             message.guild.id,
-            type,
+            selectedType,
             channel.id
         );
 
         const names = {
-            moderation: "🛡️ Moderasyon Log",
-            messages: "🗑️ Mesaj Log",
-            members: "👥 Üye Log",
-            server: "🏠 Sunucu Log"
+
+            moderation:
+                "🛡️ Moderasyon",
+
+            messages:
+                "💬 Mesaj",
+
+            members:
+                "👥 Üye",
+
+            server:
+                "🌐 Sunucu"
         };
 
-        return message.reply({
-            embeds: [
-                new EmbedBuilder()
-                    .setColor(0x000000)
-                    .setTitle("✅ ModLog Ayarlandı")
-                    .setDescription(
-                        `${names[type]} başarıyla ayarlandı.\n\n` +
-                        `📋 **Kanal:** ${channel}\n` +
-                        `🟢 **Durum:** Açık`
-                    )
-                    .setTimestamp()
-            ]
-        });
+        return message.reply(
+            `✅ **${names[selectedType]} ModLog** kanalı ${channel} olarak ayarlandı.`
+        );
     }
 };
 

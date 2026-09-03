@@ -64,8 +64,8 @@ module.exports = {
                     ["lock", "Kanalı kilitler."],
                     ["unlock", "Kanalın kilidini açar."],
                     ["unban", "Üyenin yasağını kaldırır."],
-                    ["boostkanal", "boost kanalını ayarlar."],
-                    ["boostkapat", "boost mesajını devre dışı bırakır."]
+                    ["slowmode", "kanalın yavaş modunu ayarlar."]
+
 
 
                 ]
@@ -87,7 +87,10 @@ module.exports = {
                     ["çekiliş", "Çekiliş başlatır."],
                     ["avatar", "Avatar görüntüler."],
                     ["banner", "Banner görüntüler."],
-                    ["say", "botu konuşturursun."]
+                    ["say", "botu konuşturursun."],
+                    ["ship", "iki kullanıcı arasındaki uyumu gösterir."]
+            
+                    
                 ]
             },
 
@@ -108,6 +111,9 @@ module.exports = {
                     ["ping", "Botun gecikmesini gösterir."],
                     ["sunucu", "Sunucu bilgilerini gösterir."],
                     ["istatistik", "Bot istatistiklerini gösterir."]
+                    ["boostkanal", "boost kanalını ayarlar."],
+                    ["boostkapat", "boost mesajını devre dışı bırakır."],
+                    ["seviyesistem", "seviye sistemini ayarlar."]
                 ]
             }
         };

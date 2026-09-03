@@ -83,7 +83,7 @@ module.exports = {
         }
 
         const embed = new EmbedBuilder()
-            .setColor(0xFF69B4)
+            .setColor(0x000000)
             .setTitle("🎫 DESTEK SİSTEMİ")
             .setDescription(
                 "Destek almak için aşağıdaki butona tıklayarak ticket oluşturabilirsin.\n\n" +

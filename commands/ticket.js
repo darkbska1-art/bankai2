@@ -76,7 +76,7 @@ module.exports = {
         save(data);
 
         const embed = {
-            color: 0xFF69B4,
+            color: 0x000000,
             title: "🎫 Ticket Sistemi Ayarlandı",
             description:
                 "Ticket sistemi başarıyla ayarlandı.",

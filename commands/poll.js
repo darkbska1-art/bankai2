@@ -70,7 +70,7 @@ function createPollEmbed(poll, ended = false) {
     });
 
     const embed = new EmbedBuilder()
-        .setColor(ended ? 0xED4245 : 0x5865F2)
+        .setColor(ended ? 0x000000 : 0x5865F2)
         .setTitle(ended ? "📊 Anket Sonuçlandı" : "📊 Anket")
         .setDescription(description)
         .addFields(
@@ -140,7 +140,7 @@ function createPollEmbed(poll, ended = false) {
     }
 
     embed.setFooter({
-        text: "DRAYS • Poll System"
+        text: "Bankai • Poll System"
     });
 
     return embed;

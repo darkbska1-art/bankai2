@@ -64,7 +64,8 @@ module.exports = {
                     ["lock", "Kanalı kilitler."],
                     ["unlock", "Kanalın kilidini açar."],
                     ["unban", "Üyenin yasağını kaldırır."],
-                    ["slowmode", "kanalın yavaş modunu ayarlar."]
+                    ["slowmode", "kanalın yavaş modunu ayarlar."],
+                    ["poll", "Anket başlatır."]
 
 
 
@@ -72,11 +73,14 @@ module.exports = {
             },
 
             ticket: {
-                name: "Ticket",
-                emoji: "🎫",
+                name: "Ayarlanabilir Komutlar",
+                emoji: "📝",
                 commands: [
                     ["ticketkur", "Destek panelini gönderir."],
-                    ["ticketayarla", "Ticket sistemini ayarlar."]
+                    ["ticketayarla", "Ticket sistemini ayarlar."],
+                    ["boostkanal", "boost kanalını ayarlar."],
+                    ["boostkapat", "boost mesajını devre dışı bırakır."],
+                    ["seviyesistem", "seviye sistemini ayarlar."],
                 ]
             },
 
@@ -111,9 +115,6 @@ module.exports = {
                     ["ping", "Botun gecikmesini gösterir."],
                     ["sunucu", "Sunucu bilgilerini gösterir."],
                     ["istatistik", "Bot istatistiklerini gösterir."],
-                    ["boostkanal", "boost kanalını ayarlar."],
-                    ["boostkapat", "boost mesajını devre dışı bırakır."],
-                    ["seviyesistem", "seviye sistemini ayarlar."],
                     
                 ]
             }
@@ -244,7 +245,7 @@ module.exports = {
                     name: "📚 Kategoriler",
                     value:
                         "🛡️ Moderasyon\n" +
-                        "🎫 Ticket\n" +
+                        "📝 Ayarlanabilir komutlar\n" +
                         "🎉 Eğlence\n" +
                         "🎌 Anime\n" +
                         "⚙️ Sistem",
@@ -338,12 +339,12 @@ module.exports = {
                         .setValue("moderasyon"),
 
                     new StringSelectMenuOptionBuilder()
-                        .setLabel("Ticket")
+                        .setLabel("Ayarlanabilir")
                         .setDescription(
-                            "Ticket komutları"
+                            "Sistem komutları"
                         )
-                        .setEmoji("🎫")
-                        .setValue("ticket"),
+                        .setEmoji("📝")
+                        .setValue("Ayarlanabilir komutlar"),
 
                     new StringSelectMenuOptionBuilder()
                         .setLabel("Eğlence")

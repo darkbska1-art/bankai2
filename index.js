@@ -261,6 +261,135 @@ try {
     );
 }
 
+const pollCommand = require("./commands/poll");
+
+client.on("interactionCreate", async interaction => {
+
+    if (!interaction.isButton()) return;
+
+    const id = interaction.customId;
+
+    if (!id.startsWith("poll_")) return;
+
+    const parts = id.split("_");
+
+    const action = parts[1];
+    const pollId = parts.slice(2, -1).join("_");
+    const lastPart = parts[parts.length - 1];
+
+    const poll = pollCommand.activePolls.get(
+        action === "vote" ? parts.slice(2, -1).join("_") : parts.slice(2).join("_")
+    );
+
+    if (!poll) {
+        return interaction.reply({
+            content: "❌ Bu anket artık aktif değil.",
+            ephemeral: true
+        });
+    }
+
+    // =========================
+    // OY VER
+    // =========================
+
+    if (action === "vote") {
+
+        const optionIndex = Number(lastPart);
+
+        if (
+            Number.isNaN(optionIndex) ||
+            optionIndex < 0 ||
+            optionIndex >= poll.options.length
+        ) {
+            return interaction.reply({
+                content: "❌ Geçersiz seçenek.",
+                ephemeral: true
+            });
+        }
+
+        const existingVote = poll.votes.find(
+            vote => vote.userId === interaction.user.id
+        );
+
+        if (existingVote) {
+            existingVote.option = optionIndex;
+        } else {
+            poll.votes.push({
+                userId: interaction.user.id,
+                option: optionIndex
+            });
+        }
+
+        await interaction.update({
+            embeds: [pollCommand.createPollEmbed(poll)],
+            components: pollCommand.createButtons(poll)
+        });
+
+        return;
+    }
+
+    // =========================
+    // ANKETİ BİTİR
+    // =========================
+
+    if (action === "end") {
+
+        if (interaction.user.id !== poll.creatorId) {
+            return interaction.reply({
+                content: "❌ Bu anketi sadece oluşturan kişi bitirebilir.",
+                ephemeral: true
+            });
+        }
+
+        await interaction.deferUpdate();
+
+        await pollCommand.finishPoll(
+            poll,
+            interaction.message
+        );
+
+        return;
+    }
+
+    // =========================
+    // BİLGİ
+    // =========================
+
+    if (action === "info") {
+
+        return interaction.reply({
+            content:
+                `📊 **Anket Bilgileri**\n\n` +
+                `👤 Oluşturan: <@${poll.creatorId}>\n` +
+                `🗳️ Toplam oy: **${poll.votes.length}**\n` +
+                `⏱️ Kalan: **${formatPollTime(poll.endsAt - Date.now())}**`,
+            ephemeral: true
+        });
+    }
+});
+
+function formatPollTime(ms) {
+
+    if (ms <= 0) return "Bitti";
+
+    const seconds = Math.floor(ms / 1000);
+
+    if (seconds < 60) {
+        return `${seconds} saniye`;
+    }
+
+    const minutes = Math.floor(seconds / 60);
+
+    if (minutes < 60) {
+        return `${minutes} dakika`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+
+    return `${hours} saat`;
+}
+
+
 // =====================================================
 // ⚠️ HATALAR
 // =====================================================

@@ -110,10 +110,10 @@ module.exports = {
                 commands: [
                     ["ping", "Botun gecikmesini gösterir."],
                     ["sunucu", "Sunucu bilgilerini gösterir."],
-                    ["istatistik", "Bot istatistiklerini gösterir."]
+                    ["istatistik", "Bot istatistiklerini gösterir."],
                     ["boostkanal", "boost kanalını ayarlar."],
                     ["boostkapat", "boost mesajını devre dışı bırakır."],
-                    ["seviyesistem", "seviye sistemini ayarlar."]
+                    ["seviyesistem", "seviye sistemini ayarlar."],
                 ]
             }
         };

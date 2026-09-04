@@ -9,12 +9,17 @@ http.createServer((req, res) => {
     console.log(`🌐 Web server ${PORT} portunda çalışıyor.`);
 });
 
+
 const {
     Client,
     GatewayIntentBits,
     Partials,
-    Collection
+    Collection,
+    REST,
+    Routes
 } = require("discord.js");
+
+
 
 const fs = require("fs");
 const path = require("path");
@@ -165,10 +170,12 @@ client.on("messageCreate", async message => {
 // =====================================================
 
 client.once("clientReady", async () => {
+    
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(
         `✅ ${client.user.tag} olarak giriş yapıldı!`
     );
+    await registerSlashCommands();
     console.log("🏦 Bankai aktif!");
     console.log(
         `🌐 ${client.guilds.cache.size} sunucuda bulunuyor.`
@@ -180,7 +187,7 @@ client.once("clientReady", async () => {
     console.log(`✅ ${client.user.tag} olarak giriş yapıldı!`);
 
     client.user.setActivity("B!yardım/b!yardım", {
-        type: 2
+        type:2
     });
 });
 
@@ -389,41 +396,50 @@ function formatPollTime(ms) {
     return `${hours} saat`;
 }
 
+// =====================================================
+// ⚡ SLASH KOMUTLARI
+// =====================================================
+
 const {
     REST,
-    Routes,
-    SlashCommandBuilder
+    Routes
 } = require("discord.js");
-
-const config = require("./config.js");
-
-// Slash komutları
-const commands = [
-    new SlashCommandBuilder()
-        .setName("yardım")
-        .setDescription("Bankai yardım menüsünü gösterir.")
-        .toJSON()
-];
 
 const rest = new REST({ version: "10" })
     .setToken(config.token);
 
 async function registerSlashCommands() {
     try {
+        const slashCommands = [];
+
+        for (const command of client.commands.values()) {
+            if (command.data) {
+                slashCommands.push(command.data.toJSON());
+            }
+        }
+
         console.log("🔄 Slash komutları yükleniyor...");
 
         await rest.put(
             Routes.applicationCommands(config.clientId),
             {
-                body: commands
+                body: slashCommands
             }
         );
 
-        console.log("✅ Slash komutları başarıyla yüklendi!");
+        console.log(
+            `✅ ${slashCommands.length} slash komut yüklendi!`
+        );
+
     } catch (error) {
-        console.error("❌ Slash komut yükleme hatası:", error);
+        console.error(
+            "❌ Slash komutları yüklenemedi:",
+            error
+        );
     }
 }
+
+
 
 
 

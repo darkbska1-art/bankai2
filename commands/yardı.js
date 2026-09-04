@@ -15,13 +15,25 @@ const {
 const fs = require("fs");
 const path = require("path");
 
+
 module.exports = {
-    data: new SlashCommandBuilder() .setName("yardım") .setDescription("Bankai yardım menüsünü gösterir."),
-    
+
+    data: new SlashCommandBuilder()
+        .setName("yardım")
+        .setDescription("Bankai yardım menüsünü gösterir."),
+
     name: "yardım",
-    aliases: ["help", "h", "komutlar"],
+
+    aliases: [
+        "help",
+        "h",
+        "komutlar"
+    ],
 
     async execute(message, args, client) {
+
+        // mevcut yardım kodunun geri kalanı
+
 
         // =====================================================
         // ⚙️ AYARLAR

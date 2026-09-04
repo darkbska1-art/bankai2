@@ -164,6 +164,56 @@ client.on("messageCreate", async message => {
         );
     }
 });
+// =====================================================
+// 🔗 SLASH KOMUTLARINI DISCORD'A KAYDET
+// =====================================================
+
+const rest = new REST({ version: "10" })
+    .setToken(config.token);
+
+async function registerSlashCommands() {
+
+    try {
+
+        const slashCommands = [];
+        const addedCommands = new Set();
+
+        for (const command of client.commands.values()) {
+
+            if (!command.data) continue;
+
+            const commandName = command.data.name;
+
+            if (addedCommands.has(commandName)) continue;
+
+            addedCommands.add(commandName);
+
+            slashCommands.push(
+                command.data.toJSON()
+            );
+        }
+
+        console.log("🔄 Slash komutları yükleniyor...");
+
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            {
+                body: slashCommands
+            }
+        );
+
+        console.log(
+            `✅ ${slashCommands.length} slash komut yüklendi!`
+        );
+
+    } catch (error) {
+        console.error("❌ Slash komutları yüklenemedi:");
+        console.error(error);
+    }
+}
+
+
+
 
 // =====================================================
 // 🟢 BOT HAZIR

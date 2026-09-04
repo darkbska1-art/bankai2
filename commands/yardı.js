@@ -493,10 +493,15 @@ data: new SlashCommandBuilder()
         // 🖱️ COLLECTOR
         // =====================================================
 
-        const collector =
-            panel.createMessageComponentCollector({
-                time: 300000
-            });
+
+const collector =
+    panel.createMessageComponentCollector({
+        filter: interaction =>
+            interaction.user.id === message.author.id,
+        time: 300000
+    });
+
+
 
         collector.on(
             "collect",

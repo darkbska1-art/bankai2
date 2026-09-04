@@ -464,15 +464,19 @@ client.on("interactionCreate", async interaction => {
 
     try {
 
-        const fakeMessage = {
-            author: interaction.user,
-            guild: interaction.guild,
-            channel: interaction.channel,
 
-            reply: async data => {
-                return interaction.reply(data);
-            }
-        };
+const fakeMessage = {
+    author: interaction.user,
+    guild: interaction.guild,
+    channel: interaction.channel,
+
+    reply: async data => {
+        await interaction.reply(data);
+        return await interaction.fetchReply();
+    }
+};
+
+
 
         await command.execute(
             fakeMessage,

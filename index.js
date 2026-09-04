@@ -170,26 +170,33 @@ client.on("messageCreate", async message => {
 // =====================================================
 
 client.once("clientReady", async () => {
-    
+
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
     console.log(
         `✅ ${client.user.tag} olarak giriş yapıldı!`
     );
+
+    // Slash komutlarını Discord'a yükle
     await registerSlashCommands();
+
     console.log("🏦 Bankai aktif!");
+
     console.log(
         `🌐 ${client.guilds.cache.size} sunucuda bulunuyor.`
     );
+
     console.log(
         `📦 ${client.commands.size} komut/alias yüklendi.`
     );
-    client.once("clientReady", () => {
-    console.log(`✅ ${client.user.tag} olarak giriş yapıldı!`);
 
-    client.user.setActivity("B!yardım/b!yardım", {
-        type:2
+    client.user.setActivity("B!yardım", {
+        type: 2
     });
+
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
+
 
    
 
@@ -400,44 +407,61 @@ function formatPollTime(ms) {
 // ⚡ SLASH KOMUTLARI
 // =====================================================
 
-const {
-    REST,
-    Routes
-} = require("discord.js");
+client.on("interactionCreate", async interaction => {
 
-const rest = new REST({ version: "10" })
-    .setToken(config.token);
+    if (!interaction.isChatInputCommand()) return;
 
-async function registerSlashCommands() {
+    const command =
+        client.commands.get(interaction.commandName);
+
+    if (!command || !command.data) return;
+
     try {
-        const slashCommands = [];
 
-        for (const command of client.commands.values()) {
-            if (command.data) {
-                slashCommands.push(command.data.toJSON());
+        const fakeMessage = {
+            author: interaction.user,
+            guild: interaction.guild,
+            channel: interaction.channel,
+
+            reply: async data => {
+                return interaction.reply(data);
             }
-        }
+        };
 
-        console.log("🔄 Slash komutları yükleniyor...");
-
-        await rest.put(
-            Routes.applicationCommands(config.clientId),
-            {
-                body: slashCommands
-            }
-        );
-
-        console.log(
-            `✅ ${slashCommands.length} slash komut yüklendi!`
+        await command.execute(
+            fakeMessage,
+            [],
+            client
         );
 
     } catch (error) {
+
         console.error(
-            "❌ Slash komutları yüklenemedi:",
+            "❌ Slash komut hatası:",
             error
         );
+
+        if (
+            interaction.replied ||
+            interaction.deferred
+        ) {
+
+            await interaction.followUp({
+                content:
+                    "❌ Komut çalıştırılırken bir hata oluştu.",
+                ephemeral: true
+            }).catch(() => {});
+
+        } else {
+
+            await interaction.reply({
+                content:
+                    "❌ Komut çalıştırılırken bir hata oluştu.",
+                ephemeral: true
+            }).catch(() => {});
+        }
     }
-}
+});
 
 
 

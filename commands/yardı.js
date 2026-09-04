@@ -8,13 +8,16 @@ const {
     ButtonBuilder,
     ButtonStyle,
     ComponentType,
-    AttachmentBuilder
+    AttachmentBuilder,
+    SlashCommandBuilder
 } = require("discord.js");
 
 const fs = require("fs");
 const path = require("path");
 
 module.exports = {
+    data: new SlashCommandBuilder() .setName("yardım") .setDescription("Bankai yardım menüsünü gösterir."),
+    
     name: "yardım",
     aliases: ["help", "h", "komutlar"],
 

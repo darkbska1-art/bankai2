@@ -58,7 +58,7 @@ module.exports = {
         if (!channel) {
             return message.reply(
                 "❌ Bir haber kanalı belirtmelisin.\n\n" +
-                `Örnek: \`D!animehaber #anime-haber\``
+                `Örnek: \`B!animehaber #anime-haber\``
             );
         }
 

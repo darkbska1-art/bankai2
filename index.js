@@ -169,6 +169,7 @@ client.on("messageCreate", async message => {
 // 🟢 BOT HAZIR
 // =====================================================
 
+
 client.once("clientReady", async () => {
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -177,7 +178,6 @@ client.once("clientReady", async () => {
         `✅ ${client.user.tag} olarak giriş yapıldı!`
     );
 
-    // Slash komutlarını Discord'a yükle
     await registerSlashCommands();
 
     console.log("🏦 Bankai aktif!");
@@ -198,10 +198,6 @@ client.once("clientReady", async () => {
 });
 
 
-   
-
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-});
 try {
     const boostEvent = require("./events/boost");
 

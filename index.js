@@ -389,6 +389,43 @@ function formatPollTime(ms) {
     return `${hours} saat`;
 }
 
+const {
+    REST,
+    Routes,
+    SlashCommandBuilder
+} = require("discord.js");
+
+const config = require("./config.js");
+
+// Slash komutları
+const commands = [
+    new SlashCommandBuilder()
+        .setName("yardım")
+        .setDescription("Bankai yardım menüsünü gösterir.")
+        .toJSON()
+];
+
+const rest = new REST({ version: "10" })
+    .setToken(config.token);
+
+async function registerSlashCommands() {
+    try {
+        console.log("🔄 Slash komutları yükleniyor...");
+
+        await rest.put(
+            Routes.applicationCommands(config.clientId),
+            {
+                body: commands
+            }
+        );
+
+        console.log("✅ Slash komutları başarıyla yüklendi!");
+    } catch (error) {
+        console.error("❌ Slash komut yükleme hatası:", error);
+    }
+}
+
+
 
 // =====================================================
 // ⚠️ HATALAR

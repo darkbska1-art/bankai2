@@ -18,9 +18,9 @@ const path = require("path");
 
 module.exports = {
 
-    data: new SlashCommandBuilder()
-        .setName("yardım")
-        .setDescription("Bankai yardım menüsünü gösterir."),
+data: new SlashCommandBuilder()
+    .setName("yardım")
+    .setDescription("Bankai yardım menüsünü gösterir."),
 
     name: "yardım",
 

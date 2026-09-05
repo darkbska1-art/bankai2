@@ -405,17 +405,21 @@ async function handleMemberAdd(member) {
 
 
 async function handleMemberRemove(member) {
+    console.log("=================================");
+    console.log("🚨 GUILD MEMBER REMOVE ÇALIŞTI!");
+    console.log(`👤 Kullanıcı: ${member.user.tag}`);
+    console.log(`🏠 Sunucu: ${member.guild.name}`);
+    console.log("=================================");
+
     try {
         const guild = member.guild;
-
         const guildData = getGuildData(guild.id);
 
-        // Üyenin hangi davetle geldiğini bul
         const inviteInfo = guildData.members[member.id];
 
         let inviter = null;
 
-        // Eğer davet bilgisi kayıtlıysa sayaçları güncelle
+        // Davet bilgisi varsa sayaçları güncelle
         if (inviteInfo) {
             inviter = guildData.users[inviteInfo.inviterId];
 
@@ -432,13 +436,13 @@ async function handleMemberRemove(member) {
             saveData();
         }
 
-        console.log(`📤 ${member.user.tag} çıktı.`);
+        console.log(`📤 ${member.user.tag} sunucudan ayrıldı.`);
 
-        // Bildirim kanalı ayarlı değilse sadece logla
+        // Kanal ayarlı mı?
+        console.log(`📢 Ayarlı kanal ID: ${guildData.channelId}`);
+
         if (!guildData.channelId) {
-            console.log(
-                `⚠️ ${guild.name}: Davet bildirim kanalı ayarlanmamış.`
-            );
+            console.log("❌ Davet bildirim kanalı ayarlı değil!");
             return;
         }
 
@@ -447,16 +451,14 @@ async function handleMemberRemove(member) {
         );
 
         if (!channel) {
-            console.log(
-                `❌ ${guild.name}: Davet bildirim kanalı bulunamadı.`
-            );
+            console.log("❌ Bildirim kanalı bulunamadı!");
             return;
         }
 
+        console.log(`✅ Kanal bulundu: #${channel.name}`);
+
         if (!channel.isTextBased()) {
-            console.log(
-                `❌ ${guild.name}: Bildirim kanalı mesaj gönderilebilir değil.`
-            );
+            console.log("❌ Kanal mesaj gönderilebilir bir kanal değil!");
             return;
         }
 
@@ -478,7 +480,7 @@ async function handleMemberRemove(member) {
                     .addFields(
                         {
                             name: "👤 Ayrılan Üye",
-                            value: `${member.user}`,
+                            value: `<@${member.id}>`,
                             inline: true
                         },
                         {
@@ -504,17 +506,15 @@ async function handleMemberRemove(member) {
             ]
         });
 
-        console.log(
-            `✅ ${member.user.tag} için çıkış mesajı gönderildi.`
-        );
+        console.log("✅ ÇIKIŞ MESAJI BAŞARIYLA GÖNDERİLDİ!");
 
     } catch (error) {
-        console.error(
-            "❌ Davet çıkış hatası:",
-            error
-        );
+        console.error("❌ Çıkış eventinde hata:");
+        console.error(error);
     }
 }
+
+
 
 
 

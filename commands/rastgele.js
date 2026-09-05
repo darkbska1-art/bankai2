@@ -1,7 +1,58 @@
 
-const {
-    EmbedBuilder
-} = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
+
+const API = "https://api.jikan.moe/v4";
+
+// Jikan'a istek at, hata/504 olursa tekrar dene
+async function fetchJikan(url, attempts = 3) {
+    let lastError;
+
+    for (let i = 1; i <= attempts; i++) {
+        try {
+            const response = await fetch(url);
+
+            if (response.ok) {
+                return await response.json();
+            }
+
+            lastError = new Error(
+                `Jikan HTTP ${response.status}`
+            );
+
+            console.log(
+                `⚠️ Jikan ${response.status} - Deneme ${i}/${attempts}`
+            );
+
+            if (
+                response.status === 429 ||
+                response.status >= 500
+            ) {
+                await new Promise(resolve =>
+                    setTimeout(resolve, 2500 * i)
+                );
+
+                continue;
+            }
+
+            throw lastError;
+
+        } catch (error) {
+            lastError = error;
+
+            console.log(
+                `⚠️ Jikan bağlantı hatası - Deneme ${i}/${attempts}`
+            );
+
+            if (i < attempts) {
+                await new Promise(resolve =>
+                    setTimeout(resolve, 2500 * i)
+                );
+            }
+        }
+    }
+
+    throw lastError;
+}
 
 module.exports = {
     name: "rastgele",
@@ -15,23 +66,36 @@ module.exports = {
 
     async execute(message) {
         try {
-            // Jikan'dan rastgele anime al
-            const response = await fetch(
-                "https://api.jikan.moe/v4/random/anime"
+            /*
+             * Random endpoint yerine
+             * top anime listesini kullanıyoruz.
+             */
+            const result = await fetchJikan(
+                `${API}/top/anime?limit=25`
             );
 
-            if (!response.ok) {
+            const animeList =
+                Array.isArray(result.data)
+                    ? result.data
+                    : [];
+
+            if (!animeList.length) {
                 throw new Error(
-                    `Jikan API Hatası: ${response.status}`
+                    "Anime listesi boş geldi."
                 );
             }
 
-            const result = await response.json();
-            const anime = result.data;
+            // Rastgele anime seç
+            const anime =
+                animeList[
+                    Math.floor(
+                        Math.random() * animeList.length
+                    )
+                ];
 
             if (!anime) {
-                return message.reply(
-                    "❌ Rastgele anime bulunamadı."
+                throw new Error(
+                    "Rastgele anime seçilemedi."
                 );
             }
 
@@ -50,7 +114,7 @@ module.exports = {
                 anime.type || "Bilinmiyor";
 
             const episodes =
-                anime.episodes || "Bilinmiyor";
+                anime.episodes ?? "Bilinmiyor";
 
             const score =
                 anime.score
@@ -66,66 +130,73 @@ module.exports = {
                 "Bilinmiyor";
 
             const genres =
-                anime.genres?.length
+                Array.isArray(anime.genres) &&
+                anime.genres.length
                     ? anime.genres
                         .map(g => g.name)
                         .join(", ")
                     : "Belirtilmemiş";
 
-            const synopsis =
+            let synopsis =
                 anime.synopsis ||
                 "Bu anime hakkında açıklama bulunamadı.";
 
-            const embed = new EmbedBuilder()
-                .setColor("#000000")
-                .setTitle(`🎲 ${title}`)
-                .setURL(
-                    `https://myanimelist.net/anime/${anime.mal_id}`
-                )
-                .setDescription(
-                    synopsis.length > 1000
-                        ? synopsis.slice(0, 997) + "..."
-                        : synopsis
-                )
-                .addFields(
-                    {
-                        name: "🎬 Tür",
-                        value: type,
-                        inline: true
-                    },
-                    {
-                        name: "📺 Bölüm",
-                        value: String(episodes),
-                        inline: true
-                    },
-                    {
-                        name: "⭐ Puan",
-                        value: score,
-                        inline: true
-                    },
-                    {
-                        name: "📅 Yıl",
-                        value: String(year),
-                        inline: true
-                    },
-                    {
-                        name: "📌 Durum",
-                        value: status,
-                        inline: true
-                    },
-                    {
-                        name: "🏷️ Türler",
-                        value: genres,
-                        inline: false
-                    }
-                )
-                .setThumbnail(
-                    anime.images?.jpg?.image_url || null
-                )
-                .setFooter({
-                    text: "Bankai • Rastgele Anime"
-                })
-                .setTimestamp();
+            if (synopsis.length > 1000) {
+                synopsis =
+                    synopsis.slice(0, 997) + "...";
+            }
+
+            const embed =
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle(`🎲 ${title}`)
+                    .setURL(
+                        `https://myanimelist.net/anime/${anime.mal_id}`
+                    )
+                    .setDescription(
+                        synopsis
+                    )
+                    .addFields(
+                        {
+                            name: "🎬 Tür",
+                            value: String(type),
+                            inline: true
+                        },
+                        {
+                            name: "📺 Bölüm",
+                            value: String(episodes),
+                            inline: true
+                        },
+                        {
+                            name: "⭐ Puan",
+                            value: score,
+                            inline: true
+                        },
+                        {
+                            name: "📅 Yıl",
+                            value: String(year),
+                            inline: true
+                        },
+                        {
+                            name: "📌 Durum",
+                            value: String(status),
+                            inline: true
+                        },
+                        {
+                            name: "🏷️ Türler",
+                            value: genres,
+                            inline: false
+                        }
+                    )
+                    .setThumbnail(
+                        anime.images?.jpg?.large_image_url ||
+                        anime.images?.jpg?.image_url ||
+                        null
+                    )
+                    .setFooter({
+                        text: "Bankai • Rastgele Anime"
+                    })
+                    .setTimestamp();
 
             if (englishTitle) {
                 embed.addFields({
@@ -145,9 +216,22 @@ module.exports = {
                 error
             );
 
-            return message.reply(
-                "❌ Rastgele anime alınırken bir hata oluştu. Birkaç saniye sonra tekrar dene."
-            );
+            const embed =
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("❌ Rastgele Anime")
+                    .setDescription(
+                        "Rastgele anime şu anda alınamıyor.\n\n" +
+                        "Jikan API geçici olarak yoğun olabilir. Birkaç saniye sonra tekrar dene."
+                    )
+                    .setFooter({
+                        text: "Bankai • Rastgele Anime"
+                    })
+                    .setTimestamp();
+
+            return message.reply({
+                embeds: [embed]
+            });
         }
     }
 };

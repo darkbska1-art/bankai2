@@ -1,67 +1,130 @@
 
-const {
-    EmbedBuilder
-} = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 
-const DAYS = {
+const API = "https://api.jikan.moe/v4";
+
+const DAYS = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday"
+];
+
+const DAY_NAMES = {
+    sunday: "Pazar",
     monday: "Pazartesi",
     tuesday: "Salı",
     wednesday: "Çarşamba",
     thursday: "Perşembe",
     friday: "Cuma",
-    saturday: "Cumartesi",
-    sunday: "Pazar"
+    saturday: "Cumartesi"
 };
 
-function getToday() {
-    const days = [
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday"
-    ];
+// Jikan'a istek at, hata/504 olursa tekrar dene
+async function fetchJikan(url, attempts = 3) {
+    let lastError;
 
-    return days[new Date().getDay()];
-}
+    for (let i = 1; i <= attempts; i++) {
+        try {
+            const response = await fetch(url);
 
-function getDayName(day) {
-    return DAYS[day] || day;
+            if (response.ok) {
+                return await response.json();
+            }
+
+            lastError = new Error(
+                `Jikan HTTP ${response.status}`
+            );
+
+            console.log(
+                `⚠️ Jikan ${response.status} - Deneme ${i}/${attempts}`
+            );
+
+            // Rate limit veya 5xx ise bekle
+            if (
+                response.status === 429 ||
+                response.status >= 500
+            ) {
+                await new Promise(resolve =>
+                    setTimeout(resolve, 2500 * i)
+                );
+
+                continue;
+            }
+
+            throw lastError;
+
+        } catch (error) {
+            lastError = error;
+
+            console.log(
+                `⚠️ Jikan bağlantı hatası - Deneme ${i}/${attempts}`
+            );
+
+            if (i < attempts) {
+                await new Promise(resolve =>
+                    setTimeout(resolve, 2500 * i)
+                );
+            }
+        }
+    }
+
+    throw lastError;
 }
 
 module.exports = {
     name: "takvim",
-    aliases: ["animetakvim", "animeprogram"],
+
+    aliases: [
+        "animetakvim",
+        "animeprogram"
+    ],
 
     description: "Bugün yayınlanacak animeleri gösterir.",
 
     async execute(message) {
         try {
-            const today = getToday();
+            const today =
+                DAYS[new Date().getDay()];
+
+            const dayName =
+                DAY_NAMES[today];
 
             const url =
-                `https://api.jikan.moe/v4/schedules/${today}`;
+                `${API}/schedules/${today}?limit=25`;
 
-            const response = await fetch(url);
+            const result =
+                await fetchJikan(url);
 
-            if (!response.ok) {
-                throw new Error(
-                    `Jikan API Hatası: ${response.status}`
-                );
+            const animeList =
+                Array.isArray(result.data)
+                    ? result.data
+                    : [];
+
+            // Aynı anime birden fazla gelirse temizle
+            const uniqueAnime = [];
+            const seen = new Set();
+
+            for (const anime of animeList) {
+                if (!anime.mal_id) continue;
+
+                if (seen.has(anime.mal_id)) {
+                    continue;
+                }
+
+                seen.add(anime.mal_id);
+                uniqueAnime.push(anime);
             }
 
-            const result = await response.json();
-
-            const animeList = result.data || [];
-
-            if (!animeList.length) {
+            if (!uniqueAnime.length) {
                 const embed = new EmbedBuilder()
                     .setColor("#000000")
-                    .setTitle("📅 Anime Takvimi")
+                    .setTitle("📅 Anime Yayın Takvimi")
                     .setDescription(
-                        `**${getDayName(today)}** günü için yayın takviminde anime bulunamadı.`
+                        `**${dayName}** günü için yayın takviminde anime bulunamadı.`
                     )
                     .setFooter({
                         text: "Bankai • Anime Takvimi"
@@ -73,20 +136,6 @@ module.exports = {
                 });
             }
 
-            // Aynı animeleri temizle
-            const uniqueAnime = [];
-            const seen = new Set();
-
-            for (const anime of animeList) {
-                if (!anime.mal_id || seen.has(anime.mal_id)) {
-                    continue;
-                }
-
-                seen.add(anime.mal_id);
-                uniqueAnime.push(anime);
-            }
-
-            // En fazla 15 anime göster
             const list = uniqueAnime
                 .slice(0, 15)
                 .map((anime, index) => {
@@ -95,23 +144,34 @@ module.exports = {
                         anime.title_english ||
                         "Bilinmeyen Anime";
 
-                    const episodes =
-                        anime.episodes
-                            ? `Bölüm ${anime.episodes}`
-                            : "Bölüm bilgisi yok";
+                    let time = "";
 
-                    return `**${index + 1}.** [${title}](https://myanimelist.net/anime/${anime.mal_id})\n> 🎬 ${episodes}`;
+                    if (anime.broadcast?.time) {
+                        time =
+                            ` • 🕐 ${anime.broadcast.time} ${anime.broadcast.timezone || "JST"}`;
+                    }
+
+                    return (
+                        `**${index + 1}.** ` +
+                        `[${title}](https://myanimelist.net/anime/${anime.mal_id})` +
+                        `${time}`
+                    );
                 })
-                .join("\n\n");
+                .join("\n");
 
             const embed = new EmbedBuilder()
                 .setColor("#000000")
                 .setTitle("📅 Anime Yayın Takvimi")
                 .setDescription(
-                    `**${getDayName(today)}** günü yayınlanacak animeler:\n\n${list}`
+                    `**${dayName}** günü yayınlanacak animeler:\n\n${list}`
                 )
+                .addFields({
+                    name: "📊 Toplam",
+                    value: `${uniqueAnime.length} anime`,
+                    inline: true
+                })
                 .setFooter({
-                    text: `Bankai • ${uniqueAnime.length} anime bulundu`
+                    text: "Bankai • Anime Takvimi"
                 })
                 .setTimestamp();
 
@@ -120,11 +180,26 @@ module.exports = {
             });
 
         } catch (error) {
-            console.error("❌ Anime takvimi hatası:", error);
-
-            return message.reply(
-                "❌ Anime yayın takvimi alınırken bir hata oluştu. Birkaç saniye sonra tekrar dene."
+            console.error(
+                "❌ Anime takvimi hatası:",
+                error
             );
+
+            const embed = new EmbedBuilder()
+                .setColor("#000000")
+                .setTitle("❌ Anime Takvimi")
+                .setDescription(
+                    "Anime yayın takvimi şu anda alınamıyor.\n\n" +
+                    "Jikan API geçici olarak yoğun olabilir. Birkaç saniye sonra tekrar dene."
+                )
+                .setFooter({
+                    text: "Bankai • Anime Takvimi"
+                })
+                .setTimestamp();
+
+            return message.reply({
+                embeds: [embed]
+            });
         }
     }
 };

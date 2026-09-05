@@ -175,6 +175,56 @@ client.on("messageCreate", async message => {
         );
     }
 });
+client.on("guildMemberAdd", async member => {
+    try {
+        const fs = require("fs");
+        const path = require("path");
+
+        const filePath = path.join(
+            __dirname,
+            "autorole.json"
+        );
+
+        if (!fs.existsSync(filePath)) return;
+
+        const data = JSON.parse(
+            fs.readFileSync(filePath, "utf8")
+        );
+
+        const settings = data[member.guild.id];
+
+        if (!settings) return;
+
+        const roleId = member.user.bot
+            ? settings.botRole
+            : settings.memberRole;
+
+        if (!roleId) return;
+
+        const role = member.guild.roles.cache.get(roleId);
+
+        if (!role) return;
+
+        if (role.position >= member.guild.members.me.roles.highest.position) {
+            console.log(
+                `❌ ${member.guild.name}: ${role.name} rolü verilemiyor.`
+            );
+            return;
+        }
+
+        await member.roles.add(role);
+
+        console.log(
+            `✅ ${member.user.tag} kullanıcısına ${role.name} verildi.`
+        );
+
+    } catch (error) {
+        console.error(
+            "❌ Otorol hatası:",
+            error
+        );
+    }
+});
 // =====================================================
 // 🔗 SLASH KOMUTLARINI DISCORD'A KAYDET
 // =====================================================

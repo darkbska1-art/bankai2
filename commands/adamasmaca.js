@@ -1,4 +1,3 @@
-
 const { EmbedBuilder } = require("discord.js");
 
 /* =====================================================
@@ -54,7 +53,6 @@ const words = [
     "teknoloji",
     "yazılım",
     "geliştirici",
-    "sunucu",
     "topluluk"
 ];
 
@@ -72,7 +70,7 @@ const MAX_WRONG = 5;
 const GAME_TIME = 120000;
 
 /* =====================================================
-   ADAM ASMA AŞAMALARI
+   ADAM ASMAMACA
 ===================================================== */
 
 const stages = [
@@ -85,13 +83,7 @@ const stages = [
 ];
 
 /* =====================================================
-   TÜRKÇE HARF KONTROLÜ
-===================================================== */
-
-const validLetter = /^[a-zçğıöşü]$/i;
-
-/* =====================================================
-   NORMALİZE
+   YARDIMCI FONKSİYONLAR
 ===================================================== */
 
 function normalize(text) {
@@ -100,19 +92,9 @@ function normalize(text) {
         .toLocaleLowerCase("tr-TR");
 }
 
-/* =====================================================
-   RASTGELE KELİME
-===================================================== */
-
 function getRandomWord() {
-    return words[
-        Math.floor(Math.random() * words.length)
-    ];
+    return words[Math.floor(Math.random() * words.length)];
 }
-
-/* =====================================================
-   GÖRÜNEN KELİME
-===================================================== */
 
 function getDisplay(game) {
     return game.word
@@ -125,53 +107,41 @@ function getDisplay(game) {
         .join(" ");
 }
 
-/* =====================================================
-   DOĞRU HARFLER
-===================================================== */
-
 function getCorrectLetters(game) {
-    const correct = game.guessed.filter(letter =>
+    const letters = game.guessed.filter(letter =>
         game.word.includes(letter)
     );
 
-    return correct.length
-        ? correct.map(x => `\`${x.toUpperCase()}\``).join(" ")
+    return letters.length
+        ? letters
+            .map(x => `\`${x.toUpperCase()}\``)
+            .join(" ")
         : "Yok";
 }
 
-/* =====================================================
-   HATALI HARFLER
-===================================================== */
-
 function getWrongLetters(game) {
-    const wrong = game.guessed.filter(letter =>
+    const letters = game.guessed.filter(letter =>
         !game.word.includes(letter)
     );
 
-    return wrong.length
-        ? wrong.map(x => `\`${x.toUpperCase()}\``).join(" ")
+    return letters.length
+        ? letters
+            .map(x => `\`${x.toUpperCase()}\``)
+            .join(" ")
         : "Yok";
 }
 
-/* =====================================================
-   İLERLEME
-===================================================== */
-
 function getProgress(game) {
-    const uniqueLetters = [...new Set(game.word.split(""))];
+    const unique = [...new Set(game.word.split(""))];
 
-    const found = uniqueLetters.filter(letter =>
+    const found = unique.filter(letter =>
         game.guessed.includes(letter)
     );
 
     return Math.round(
-        (found.length / uniqueLetters.length) * 100
+        (found.length / unique.length) * 100
     );
 }
-
-/* =====================================================
-   KAZANMA KONTROLÜ
-===================================================== */
 
 function hasWon(game) {
     return [...new Set(game.word.split(""))]
@@ -181,24 +151,31 @@ function hasWon(game) {
 }
 
 /* =====================================================
-   EMBED OLUŞTUR
+   OYUN EMBED
 ===================================================== */
 
 function createGameEmbed(game) {
     const progress = getProgress(game);
 
     return new EmbedBuilder()
-        .setColor("#5865F2")
+        .setColor("#000000")
         .setTitle("🪢 Adam Asmaca")
         .setDescription(
             `${stages[game.wrong]}\n\n` +
+
             `## 🔤 Kelime\n` +
             `**${getDisplay(game)}**\n\n` +
+
             `📊 **İlerleme:** \`${progress}%\`\n\n` +
+
             `💡 **Harf tahmini:**\n` +
             `\`B!adamasmaca a\`\n\n` +
+
             `🧠 **Kelime tahmini:**\n` +
-            `\`B!adamasmaca discord\``
+            `\`B!adamasmaca discord\`\n\n` +
+
+            `🛑 **Oyunu iptal:**\n` +
+            `\`B!adamasmaca iptal\``
         )
         .addFields(
             {
@@ -212,8 +189,8 @@ function createGameEmbed(game) {
                 inline: true
             },
             {
-                name: "🎯 Tahmin",
-                value: `**${game.guessed.length}**`,
+                name: "🎯 Toplam Tahmin",
+                value: `**${game.guesses}**`,
                 inline: true
             },
             {
@@ -234,44 +211,61 @@ function createGameEmbed(game) {
 }
 
 /* =====================================================
-   SONUÇ EMBED
+   KAZANMA EMBED
 ===================================================== */
 
-function createResultEmbed(game, won) {
-    if (won) {
-        return new EmbedBuilder()
-            .setColor("#57F287")
-            .setTitle("🎉 Tebrikler, Kazandın!")
-            .setDescription(
-                `## 🏆 Kelimeyi Bildin!\n\n` +
-                `🔤 Kelime: **${game.word.toUpperCase()}**\n\n` +
-                `❌ Hatalı tahmin: **${game.wrong}/${MAX_WRONG}**\n` +
-                `🎯 Toplam tahmin: **${game.guessed.length}**\n` +
-                `📊 İlerleme: **100%**`
-            )
-            .addFields({
-                name: "⭐ Performans",
-                value:
-                    game.wrong === 0
-                        ? "🔥 Kusursuz oyun!"
-                        : game.wrong <= 2
-                            ? "😎 Harika oynadın!"
-                            : "👍 Son anda kurtardın!"
-            })
-            .setFooter({
-                text: "Bankai • Adam Asmaca"
-            })
-            .setTimestamp();
-    }
-
+function createWinEmbed(game) {
     return new EmbedBuilder()
-        .setColor("#ED4245")
+        .setColor("#000000")
+        .setTitle("🎉 Tebrikler, Kazandın!")
+        .setDescription(
+            `## 🏆 Kelimeyi Bildin!\n\n` +
+
+            `🔤 **Kelime:** ` +
+            `**${game.word.toUpperCase()}**\n\n` +
+
+            `❌ **Hatalı tahmin:** ` +
+            `**${game.wrong}/${MAX_WRONG}**\n` +
+
+            `🎯 **Toplam tahmin:** ` +
+            `**${game.guesses}**\n` +
+
+            `📊 **İlerleme:** **100%**`
+        )
+        .addFields({
+            name: "⭐ Performans",
+            value:
+                game.wrong === 0
+                    ? "🔥 Kusursuz oyun!"
+                    : game.wrong <= 2
+                        ? "😎 Harika oynadın!"
+                        : "👍 Son anda kurtardın!"
+        })
+        .setFooter({
+            text: "Bankai • Adam Asmaca"
+        })
+        .setTimestamp();
+}
+
+/* =====================================================
+   KAYBETME EMBED
+===================================================== */
+
+function createLoseEmbed(game) {
+    return new EmbedBuilder()
+        .setColor("#000000")
         .setTitle("💀 Oyun Bitti!")
         .setDescription(
             `Maalesef kelimeyi bulamadın.\n\n` +
-            `🔤 Doğru kelime: **${game.word.toUpperCase()}**\n\n` +
-            `❌ Hatalı tahmin: **${game.wrong}/${MAX_WRONG}**\n` +
-            `🎯 Toplam tahmin: **${game.guessed.length}**`
+
+            `🔤 **Doğru kelime:** ` +
+            `**${game.word.toUpperCase()}**\n\n` +
+
+            `❌ **Hatalı tahmin:** ` +
+            `**${game.wrong}/${MAX_WRONG}**\n` +
+
+            `🎯 **Toplam tahmin:** ` +
+            `**${game.guesses}**`
         )
         .setFooter({
             text: "Bankai • Adam Asmaca"
@@ -299,43 +293,205 @@ module.exports = {
         const userId = message.author.id;
 
         /* =================================================
-           İPTAL
-        ================================================= */
-
-        if (args[0]?.toLowerCase() === "iptal") {
-
-            if (!games.has(userId)) {
-                return message.reply(
-                    "❌ Aktif bir adam asmaca oyunun yok."
-                );
-            }
-
-            const game = games.get(userId);
-
-            game.collector?.stop("cancelled");
-
-            games.delete(userId);
-
-            return message.reply(
-                "🛑 **Adam asmaca oyunun iptal edildi.**"
-            );
-        }
-
-        /* =================================================
-           AKTİF OYUN KONTROLÜ
+           AKTİF OYUN VARSA
         ================================================= */
 
         if (games.has(userId)) {
 
-            return message.reply(
-                "❌ Zaten devam eden bir adam asmaca oyunun var!\n\n" +
-                "🛑 Oyunu bitirmek için:\n" +
-                "`B!adamasmaca iptal`"
+            const game = games.get(userId);
+
+            /* =============================================
+               İPTAL
+            ============================================= */
+
+            if (
+                args[0] &&
+                normalize(args[0]) === "iptal"
+            ) {
+
+                clearTimeout(game.timeout);
+
+                games.delete(userId);
+
+                return message.reply(
+                    "🛑 **Adam asmaca oyunun iptal edildi.**"
+                );
+            }
+
+            /* =============================================
+               BOŞ TAHMİN
+            ============================================= */
+
+            if (!args.length) {
+                return message.reply(
+                    "❌ Zaten devam eden bir adam asmaca oyunun var!\n\n" +
+                    "💡 Harf tahmini:\n" +
+                    "`B!adamasmaca a`\n\n" +
+                    "🧠 Kelime tahmini:\n" +
+                    "`B!adamasmaca discord`\n\n" +
+                    "🛑 İptal:\n" +
+                    "`B!adamasmaca iptal`"
+                );
+            }
+
+            /* =============================================
+               TAHMİNİ AL
+            ============================================= */
+
+            const guess = normalize(
+                args.join(" ")
             );
+
+            /* =============================================
+               KELİME TAHMİNİ
+            ============================================= */
+
+            if (guess.length > 1) {
+
+                game.guesses++;
+
+                /* DOĞRU */
+
+                if (guess === game.word) {
+
+                    clearTimeout(game.timeout);
+
+                    games.delete(userId);
+
+                    return message.reply({
+                        embeds: [
+                            createWinEmbed(game)
+                        ]
+                    });
+                }
+
+                /* YANLIŞ */
+
+                game.wrong++;
+
+                if (game.wrong >= MAX_WRONG) {
+
+                    clearTimeout(game.timeout);
+
+                    games.delete(userId);
+
+                    return message.reply({
+                        embeds: [
+                            createLoseEmbed(game)
+                        ]
+                    });
+                }
+
+                await game.message.edit({
+                    embeds: [
+                        createGameEmbed(game)
+                    ]
+                });
+
+                return message.reply({
+                    embeds: [
+                        new EmbedBuilder()
+                           .setColor("#000000")
+                            .setTitle("❌ Yanlış Kelime!")
+                            .setDescription(
+                                `**${guess}** doğru kelime değil.\n\n` +
+                                `❤️ Kalan hak: **${MAX_WRONG - game.wrong}**`
+                            )
+                            .setFooter({
+                                text: "Bankai • Adam Asmaca"
+                            })
+                    ]
+                });
+            }
+
+            /* =============================================
+               HARF TAHMİNİ
+            ============================================= */
+
+            if (!/^[a-zçğıöşü]$/i.test(guess)) {
+
+                return message.reply(
+                    "❌ Geçerli bir harf gir.\n\n" +
+                    "Örnek:\n" +
+                    "`B!adamasmaca a`"
+                );
+            }
+
+            /* =============================================
+               AYNI HARF
+            ============================================= */
+
+            if (game.guessed.includes(guess)) {
+
+                return message.reply(
+                    `❌ **${guess.toUpperCase()}** harfini zaten denedin.`
+                );
+            }
+
+            /* =============================================
+               HARFİ EKLE
+            ============================================= */
+
+            game.guessed.push(guess);
+            game.guesses++;
+
+            /* =============================================
+               YANLIŞ HARF
+            ============================================= */
+
+            if (!game.word.includes(guess)) {
+                game.wrong++;
+            }
+
+            /* =============================================
+               KAZANDI
+            ============================================= */
+
+            if (hasWon(game)) {
+
+                clearTimeout(game.timeout);
+
+                games.delete(userId);
+
+                return message.reply({
+                    embeds: [
+                        createWinEmbed(game)
+                    ]
+                });
+            }
+
+            /* =============================================
+               KAYBETTİ
+            ============================================= */
+
+            if (game.wrong >= MAX_WRONG) {
+
+                clearTimeout(game.timeout);
+
+                games.delete(userId);
+
+                return message.reply({
+                    embeds: [
+                        createLoseEmbed(game)
+                    ]
+                });
+            }
+
+            /* =============================================
+               OYUN MESAJINI GÜNCELLE
+            ============================================= */
+
+            await game.message.edit({
+                embeds: [
+                    createGameEmbed(game)
+                ]
+            });
+
+            return;
         }
 
         /* =================================================
-           KELİME
+           YENİ OYUN
         ================================================= */
 
         const word = getRandomWord();
@@ -344,243 +500,50 @@ module.exports = {
             word,
             guessed: [],
             wrong: 0,
-            startedAt: Date.now(),
-            collector: null
+            guesses: 0,
+            message: null,
+            timeout: null
         };
 
         games.set(userId, game);
 
         /* =================================================
-           BAŞLANGIÇ MESAJI
+           OYUN MESAJI
         ================================================= */
 
-        const gameMessage = await message.reply({
+        const sentMessage = await message.reply({
             embeds: [
                 createGameEmbed(game)
             ]
         });
 
-        /* =================================================
-           COLLECTOR
-        ================================================= */
-
-        const collector =
-            message.channel.createMessageCollector({
-
-                filter: m =>
-                    m.author.id === userId &&
-                    /^b!adamasmaca\b/i.test(
-                        m.content.trim()
-                    ),
-
-                time: GAME_TIME
-            });
-
-        game.collector = collector;
+        game.message = sentMessage;
 
         /* =================================================
-           TAHMİN
+           2 DAKİKA SÜRE
         ================================================= */
 
-        collector.on("collect", async m => {
+        game.timeout = setTimeout(async () => {
+
+            if (!games.has(userId)) {
+                return;
+            }
+
+            games.delete(userId);
 
             try {
 
-                const input = m.content
-                    .replace(
-                        /^b!adamasmaca\b/i,
-                        ""
-                    )
-                    .trim();
-
-                const guess = normalize(input);
-
-                /* =============================================
-                   BOŞ GİRDİ
-                ============================================= */
-
-                if (!guess) {
-                    return m.reply(
-                        "💡 Bir **harf** veya **kelime** yazmalısın."
-                    );
-                }
-
-                /* =============================================
-                   KELİME TAHMİNİ
-                ============================================= */
-
-                if (guess.length > 1) {
-
-                    if (guess === game.word) {
-
-                        games.delete(userId);
-
-                        collector.stop("won");
-
-                        return m.reply({
-                            embeds: [
-                                createResultEmbed(
-                                    game,
-                                    true
-                                )
-                            ]
-                        });
-                    }
-
-                    game.wrong++;
-
-                    if (game.wrong >= MAX_WRONG) {
-
-                        games.delete(userId);
-
-                        collector.stop("lost");
-
-                        return m.reply({
-                            embeds: [
-                                createResultEmbed(
-                                    game,
-                                    false
-                                )
-                            ]
-                        });
-                    }
-
-                    return m.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor("#ED4245")
-                                .setTitle("❌ Yanlış Kelime!")
-                                .setDescription(
-                                    `**${guess}** doğru kelime değil.\n\n` +
-                                    `❤️ Kalan hak: **${MAX_WRONG - game.wrong}**`
-                                )
-                                .setFooter({
-                                    text: "Bankai • Adam Asmaca"
-                                })
-                        ]
-                    });
-                }
-
-                /* =============================================
-                   HARF KONTROLÜ
-                ============================================= */
-
-                if (!validLetter.test(guess)) {
-
-                    return m.reply(
-                        "❌ Geçerli bir harf gir.\n" +
-                        "Örnek: `B!adamasmaca a`"
-                    );
-                }
-
-                /* =============================================
-                   AYNI HARF
-                ============================================= */
-
-                if (game.guessed.includes(guess)) {
-
-                    return m.reply(
-                        `❌ **${guess.toUpperCase()}** harfini zaten denedin.`
-                    );
-                }
-
-                /* =============================================
-                   HARF EKLE
-                ============================================= */
-
-                game.guessed.push(guess);
-
-                /* =============================================
-                   YANLIŞ HARF
-                ============================================= */
-
-                if (!game.word.includes(guess)) {
-                    game.wrong++;
-                }
-
-                /* =============================================
-                   KAZANDI
-                ============================================= */
-
-                if (hasWon(game)) {
-
-                    games.delete(userId);
-
-                    collector.stop("won");
-
-                    return m.reply({
-                        embeds: [
-                            createResultEmbed(
-                                game,
-                                true
-                            )
-                        ]
-                    });
-                }
-
-                /* =============================================
-                   KAYBETTİ
-                ============================================= */
-
-                if (game.wrong >= MAX_WRONG) {
-
-                    games.delete(userId);
-
-                    collector.stop("lost");
-
-                    return m.reply({
-                        embeds: [
-                            createResultEmbed(
-                                game,
-                                false
-                            )
-                        ]
-                    });
-                }
-
-                /* =============================================
-                   OYUNU GÜNCELLE
-                ============================================= */
-
-                await gameMessage.edit({
-                    embeds: [
-                        createGameEmbed(game)
-                    ]
-                });
-
-            } catch (error) {
-
-                console.error(
-                    "Adam asmaca hatası:",
-                    error
-                );
-
-            }
-
-        });
-
-        /* =================================================
-           SÜRE BİTTİ / OYUN SONLANDI
-        ================================================= */
-
-        collector.on("end", async (_, reason) => {
-
-            if (reason === "time") {
-
-                if (!games.has(userId)) {
-                    return;
-                }
-
-                games.delete(userId);
-
-                return message.channel.send({
+                await sentMessage.edit({
                     embeds: [
                         new EmbedBuilder()
-                            .setColor("#FAA61A")
+                            .setColor("#000000")
                             .setTitle("⏰ Süre Doldu!")
                             .setDescription(
-                                `${message.author}, adam asmaca oyununun süresi doldu.\n\n` +
-                                `🔤 Kelime: **${game.word.toUpperCase()}**`
+                                `Adam asmaca oyununun süresi doldu.\n\n` +
+                                `🔤 **Kelime:** ` +
+                                `**${word.toUpperCase()}**\n\n` +
+                                `🎯 **Toplam tahmin:** ` +
+                                `**${game.guesses}**`
                             )
                             .setFooter({
                                 text: "Bankai • Adam Asmaca"
@@ -588,9 +551,16 @@ module.exports = {
                             .setTimestamp()
                     ]
                 });
+
+            } catch (error) {
+
+                console.error(
+                    "Adam asmaca süre hatası:",
+                    error
+                );
+
             }
 
-        });
+        }, GAME_TIME);
     }
 };
-

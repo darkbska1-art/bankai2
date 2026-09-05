@@ -1,150 +1,91 @@
-const {
-    EmbedBuilder,
-    PermissionFlagsBits
-} = require("discord.js");
-
 const fs = require("fs");
 const path = require("path");
+const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
-const AFK_FILE = path.join(__dirname, "..", "afk.json");
-
-// =====================================================
-// 📁 AFK VERİTABANI
-// =====================================================
+const filePath = path.join(__dirname, "..", "afk.json");
 
 function loadData() {
     try {
-        if (!fs.existsSync(AFK_FILE)) {
-            fs.writeFileSync(AFK_FILE, "{}");
-            return {};
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, "{}");
         }
 
-        const content = fs.readFileSync(AFK_FILE, "utf8");
-
-        if (!content.trim()) {
-            return {};
-        }
-
-        return JSON.parse(content);
-
+        return JSON.parse(fs.readFileSync(filePath, "utf8"));
     } catch (error) {
-
-        console.error("❌ AFK verisi okunamadı:", error);
-
+        console.error("❌ afk.json okunamadı:", error);
         return {};
     }
 }
 
 function saveData(data) {
     try {
-
         fs.writeFileSync(
-            AFK_FILE,
-            JSON.stringify(data, null, 4)
+            filePath,
+            JSON.stringify(data, null, 4),
+            "utf8"
         );
-
     } catch (error) {
-
-        console.error("❌ AFK verisi kaydedilemedi:", error);
+        console.error("❌ afk.json kaydedilemedi:", error);
     }
 }
 
-// =====================================================
-// ⏱️ SÜRE FORMAT
-// =====================================================
-
 function formatDuration(ms) {
+    const seconds = Math.floor(ms / 1000);
 
-    let seconds = Math.floor(ms / 1000);
-
-    if (seconds < 0) {
-        seconds = 0;
+    if (seconds < 60) {
+        return `${seconds} saniye`;
     }
-
-    const days = Math.floor(seconds / 86400);
-
-    seconds %= 86400;
-
-    const hours = Math.floor(seconds / 3600);
-
-    seconds %= 3600;
 
     const minutes = Math.floor(seconds / 60);
 
-    seconds %= 60;
-
-    const parts = [];
-
-    if (days > 0) {
-        parts.push(`${days} gün`);
+    if (minutes < 60) {
+        return `${minutes} dakika`;
     }
 
-    if (hours > 0) {
-        parts.push(`${hours} saat`);
+    const hours = Math.floor(minutes / 60);
+
+    if (hours < 24) {
+        return `${hours} saat`;
     }
 
-    if (minutes > 0) {
-        parts.push(`${minutes} dakika`);
-    }
+    const days = Math.floor(hours / 24);
 
-    if (seconds > 0 || parts.length === 0) {
-        parts.push(`${seconds} saniye`);
-    }
-
-    return parts.join(" ");
+    return `${days} gün`;
 }
 
-// =====================================================
-// 🏷️ NICKNAME DEĞİŞTİR
-// =====================================================
-
-async function addAFKNickname(member) {
-
+async function addNickname(member) {
     try {
+        if (!member.manageable) return false;
 
-        const me = member.guild.members.me;
-
-        if (!me) {
+        if (!member.guild.members.me.permissions.has(
+            PermissionFlagsBits.ManageNicknames
+        )) {
             return false;
         }
 
-        if (
-            !me.permissions.has(
-                PermissionFlagsBits.ManageNicknames
-            )
-        ) {
-            return false;
-        }
+        const currentNickname = member.nickname;
 
-        if (!member.manageable) {
-            return false;
-        }
-
-        const currentName =
-            member.nickname || member.user.username;
-
-        // Zaten AFK ise tekrar ekleme
-        if (
-            currentName.startsWith("[AFK]") ||
-            currentName.startsWith("[afk]")
-        ) {
+        if (currentNickname?.startsWith("[AFK] ")) {
             return true;
         }
 
-        const newNickname =
-            `[AFK] ${currentName}`.slice(0, 32);
+        let newNickname = `[AFK] ${currentNickname || member.user.username}`;
+
+        // Discord nickname sınırı
+        if (newNickname.length > 32) {
+            newNickname = newNickname.slice(0, 32);
+        }
 
         await member.setNickname(
             newNickname,
-            "Bankai AFK sistemi"
+            "AFK sistemi"
         );
 
         return true;
 
     } catch (error) {
-
-        console.error(
-            `❌ ${member.user.tag} nickname değiştirilemedi:`,
+        console.log(
+            `⚠️ ${member.user.tag} nick değiştirilemedi:`,
             error.message
         );
 
@@ -152,53 +93,37 @@ async function addAFKNickname(member) {
     }
 }
 
-// =====================================================
-// 🏷️ ESKİ NICKNAME GERİ GETİR
-// =====================================================
-
-async function removeAFKNickname(member, oldNickname) {
-
+async function removeNickname(member, oldNickname) {
     try {
+        if (!member.manageable) return;
 
-        if (!member) {
-            return false;
-        }
-
-        if (!member.manageable) {
-            return false;
+        if (!member.guild.members.me.permissions.has(
+            PermissionFlagsBits.ManageNicknames
+        )) {
+            return;
         }
 
         await member.setNickname(
             oldNickname || null,
-            "Bankai AFK sistemi sona erdi"
+            "AFK sistemi kaldırıldı"
         );
-
-        return true;
 
     } catch (error) {
-
-        console.error(
-            `❌ ${member.user.tag} nickname geri alınamadı:`,
+        console.log(
+            `⚠️ ${member.user.tag} nick geri alınamadı:`,
             error.message
         );
-
-        return false;
     }
 }
 
+
 // =====================================================
-// 💤 AFK KOMUTU
+// B!AFK
 // =====================================================
 
 async function execute(message, args) {
 
-    if (!message.guild) {
-        return;
-    }
-
-    if (message.author.bot) {
-        return;
-    }
+    if (!message.guild) return;
 
     const data = loadData();
 
@@ -209,195 +134,250 @@ async function execute(message, args) {
         data[guildId] = {};
     }
 
-    const reason =
-        args.join(" ").trim() ||
-        "Sebep belirtilmedi.";
-
-    // =================================================
-    // ZATEN AFK MI?
-    // =================================================
-
+    // Zaten AFK
     if (data[guildId][userId]) {
 
-        const oldAFK =
-            data[guildId][userId];
-
-        oldAFK.reason = reason;
-
-        saveData(data);
-
-        const embed = new EmbedBuilder()
-            .setColor("#000000")
-            .setTitle("💤 AFK Güncellendi")
-            .setDescription(
-                `AFK durumun güncellendi.\n\n` +
-                `💬 **Yeni sebep:** ${reason}\n` +
-                `⏱️ **AFK süresi:** ${formatDuration(Date.now() - oldAFK.since)}`
-            )
-            .setFooter({
-                text: `Bankai • ${message.guild.name}`
-            })
-            .setTimestamp();
+        const since = data[guildId][userId].since;
 
         return message.reply({
-            embeds: [embed]
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("💤 Zaten AFK'sın")
+                    .setDescription(
+                        `Zaten AFK durumundasın.\n\n` +
+                        `**Sebep:** ${data[guildId][userId].reason}\n` +
+                        `**Süre:** ${formatDuration(Date.now() - since)}`
+                    )
+            ]
         });
     }
 
-    // =================================================
-    // ESKİ NICKNAME
-    // =================================================
+    const reason =
+        args.length > 0
+            ? args.join(" ")
+            : "Belirtilmedi";
 
-    const oldNickname =
-        message.member.nickname || null;
+    const member = message.member;
 
-    // =================================================
-    // AFK KAYDI
-    // =================================================
+    const oldNickname = member.nickname;
 
     data[guildId][userId] = {
-
         reason: reason,
-
         since: Date.now(),
-
         oldNickname: oldNickname,
-
         mentions: 0
     };
 
     saveData(data);
 
-    // =================================================
-    // NICKNAME
-    // =================================================
-
-    const nicknameChanged =
-        await addAFKNickname(message.member);
-
-    // =================================================
-    // EMBED
-    // =================================================
-
-    const embed = new EmbedBuilder()
-        .setColor("#000000")
-        .setTitle("💤 AFK Modu Aktif")
-        .setDescription(
-            `${message.author}, artık AFK'sın.\n\n` +
-
-            `💬 **Sebep:** ${reason}\n` +
-
-            `⏱️ **Başlangıç:** <t:${Math.floor(Date.now() / 1000)}:R>\n` +
-
-            `🏷️ **Nickname:** ${
-                nicknameChanged
-                    ? "`[AFK]` eklendi."
-                    : "Değiştirilemedi."
-            }\n\n` +
-
-            `📌 Bir mesaj yazdığında AFK otomatik olarak kaldırılır.`
-        )
-        .setFooter({
-            text: `Bankai • ${message.guild.name}`
-        })
-        .setTimestamp();
+    // Nick değiştir
+    await addNickname(member);
 
     return message.reply({
-        embeds: [embed]
+        embeds: [
+            new EmbedBuilder()
+                .setColor("#000000")
+                .setTitle("💤 AFK Modu")
+                .setDescription(
+                    `**${message.author}** artık AFK.\n\n` +
+                    `📝 **Sebep:** ${reason}\n` +
+                    `⏱️ **Başlangıç:** <t:${Math.floor(Date.now() / 1000)}:R>\n\n` +
+                    `💬 Bir mesaj gönderdiğinde AFK durumun otomatik olarak kaldırılır.`
+                )
+                .setFooter({
+                    text: "Bankai • AFK Sistemi"
+                })
+        ]
     });
 }
 
+
 // =====================================================
-// 📊 AFK BİLGİ
+// MESAJ KONTROLÜ
 // =====================================================
 
-async function afkInfo(message, target) {
+async function handleMessage(message) {
+
+    if (!message.guild) return;
+
+    if (message.author.bot) return;
 
     const data = loadData();
 
     const guildId = message.guild.id;
+    const userId = message.author.id;
 
-    const userId =
-        target?.id || message.author.id;
+    if (!data[guildId]) {
+        data[guildId] = {};
+    }
 
-    const afk =
-        data[guildId]?.[userId];
 
-    if (!afk) {
+    // =================================================
+    // 1. KENDİ AFK'SINI KALDIR
+    // =================================================
 
-        const embed = new EmbedBuilder()
-            .setColor("#000000")
-            .setTitle("💤 AFK Bilgisi")
-            .setDescription(
-                `❌ ${target || message.author} şu anda AFK değil.`
-            )
-            .setTimestamp();
+    if (data[guildId][userId]) {
 
+        const afkData = data[guildId][userId];
+
+        const duration = formatDuration(
+            Date.now() - afkData.since
+        );
+
+        delete data[guildId][userId];
+
+        saveData(data);
+
+        await removeNickname(
+            message.member,
+            afkData.oldNickname
+        );
+
+        await message.reply({
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("👋 AFK Kaldırıldı")
+                    .setDescription(
+                        `Tekrar hoş geldin **${message.author.username}**!\n\n` +
+                        `⏱️ AFK süren: **${duration}**`
+                    )
+                    .setFooter({
+                        text: "Bankai • AFK Sistemi"
+                    })
+            ]
+        }).catch(() => {});
+
+        return;
+    }
+
+
+    // =================================================
+    // 2. MENTIONLANAN KİŞİLERİ KONTROL ET
+    // =================================================
+
+    if (message.mentions.users.size === 0) {
+        return;
+    }
+
+    let replies = [];
+
+    for (const [, user] of message.mentions.users) {
+
+        if (user.bot) continue;
+
+        const targetData = data[guildId]?.[user.id];
+
+        if (!targetData) continue;
+
+        targetData.mentions =
+            (targetData.mentions || 0) + 1;
+
+        const duration = formatDuration(
+            Date.now() - targetData.since
+        );
+
+        replies.push(
+            `💤 **${user.username}** şu anda AFK.\n` +
+            `📝 Sebep: **${targetData.reason}**\n` +
+            `⏱️ Süre: **${duration}**`
+        );
+    }
+
+    if (replies.length === 0) {
+        return;
+    }
+
+    saveData(data);
+
+    await message.reply({
+        embeds: [
+            new EmbedBuilder()
+                .setColor("#000000")
+                .setTitle("💤 AFK Bilgisi")
+                .setDescription(
+                    replies.join("\n\n")
+                )
+                .setFooter({
+                    text: "Bankai • AFK Sistemi"
+                })
+        ]
+    }).catch(() => {});
+}
+
+
+// =====================================================
+// AFK BİLGİ
+// =====================================================
+
+async function afkInfo(message, target) {
+
+    if (!message.guild) return;
+
+    const data = loadData();
+
+    const user =
+        target || message.author;
+
+    const afkData =
+        data[message.guild.id]?.[user.id];
+
+    if (!afkData) {
         return message.reply({
-            embeds: [embed]
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("❌ AFK Değil")
+                    .setDescription(
+                        `**${user.username}** AFK değil.`
+                    )
+            ]
         });
     }
 
-    const user =
-        await message.client.users.fetch(userId)
-            .catch(() => null);
-
-    const mention =
-        user ? `<@${userId}>` : "Bilinmeyen kullanıcı";
-
-    const duration =
-        formatDuration(Date.now() - afk.since);
-
-    const embed = new EmbedBuilder()
-        .setColor("#000000")
-        .setTitle("💤 AFK Bilgisi")
-        .addFields(
-
-            {
-                name: "👤 Kullanıcı",
-                value: mention,
-                inline: true
-            },
-
-            {
-                name: "💬 Sebep",
-                value: afk.reason || "Sebep yok",
-                inline: true
-            },
-
-            {
-                name: "⏱️ Süre",
-                value: duration,
-                inline: true
-            },
-
-            {
-                name: "🔔 Etiketlenme",
-                value: `${afk.mentions || 0} kez`,
-                inline: true
-            },
-
-            {
-                name: "🕐 Başlangıç",
-                value: `<t:${Math.floor(afk.since / 1000)}:F>`,
-                inline: true
-            }
-        )
-        .setFooter({
-            text: `Bankai • ${message.guild.name}`
-        })
-        .setTimestamp();
-
-    return message.reply({
-        embeds: [embed]
+    await message.reply({
+        embeds: [
+            new EmbedBuilder()
+                .setColor("#000000")
+                .setTitle("💤 AFK Bilgisi")
+                .setThumbnail(user.displayAvatarURL())
+                .addFields(
+                    {
+                        name: "👤 Kullanıcı",
+                        value: `${user}`,
+                        inline: true
+                    },
+                    {
+                        name: "📝 Sebep",
+                        value: afkData.reason,
+                        inline: true
+                    },
+                    {
+                        name: "⏱️ Süre",
+                        value: formatDuration(
+                            Date.now() - afkData.since
+                        ),
+                        inline: true
+                    },
+                    {
+                        name: "📨 Mention",
+                        value: `${afkData.mentions || 0}`,
+                        inline: true
+                    }
+                )
+        ]
     });
 }
 
+
 // =====================================================
-// 📋 AFK LİSTESİ
+// AFK LİSTESİ
 // =====================================================
 
 async function afkList(message) {
+
+    if (!message.guild) return;
 
     const data = loadData();
 
@@ -408,294 +388,122 @@ async function afkList(message) {
         Object.entries(guildData);
 
     if (entries.length === 0) {
-
-        const embed = new EmbedBuilder()
-            .setColor("#000000")
-            .setTitle("💤 AFK Listesi")
-            .setDescription(
-                "Bu sunucuda şu anda AFK olan kimse yok."
-            )
-            .setTimestamp();
-
         return message.reply({
-            embeds: [embed]
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("💤 AFK Listesi")
+                    .setDescription(
+                        "Bu sunucuda AFK olan kimse yok."
+                    )
+            ]
         });
     }
 
     const list = [];
 
-    for (const [userId, afk] of entries.slice(0, 15)) {
+    for (const [userId, afk] of entries) {
+
+        const member =
+            await message.guild.members
+                .fetch(userId)
+                .catch(() => null);
+
+        if (!member) continue;
 
         list.push(
-            `💤 <@${userId}> — **${afk.reason}**\n` +
-            `> ⏱️ ${formatDuration(Date.now() - afk.since)}`
+            `💤 ${member} — **${afk.reason}** — ${formatDuration(Date.now() - afk.since)}`
         );
     }
 
-    const embed = new EmbedBuilder()
-        .setColor("#000000")
-        .setTitle("💤 AFK Listesi")
-        .setDescription(
-            list.join("\n\n")
-        )
-        .setFooter({
-            text:
-                `Toplam ${entries.length} AFK • Bankai`
-        })
-        .setTimestamp();
-
-    return message.reply({
-        embeds: [embed]
+    await message.reply({
+        embeds: [
+            new EmbedBuilder()
+                .setColor("#000000")
+                .setTitle("💤 AFK Listesi")
+                .setDescription(
+                    list.length
+                        ? list.join("\n")
+                        : "AFK olan kimse yok."
+                )
+        ]
     });
 }
 
+
 // =====================================================
-// ❌ AFK İPTAL
+// AFK İPTAL
 // =====================================================
 
 async function cancelAFK(message, target) {
 
-    const data = loadData();
-
-    const guildId = message.guild.id;
+    if (!message.guild) return;
 
     const user =
         target || message.author;
 
-    const userId = user.id;
+    const data = loadData();
 
-    const afk =
-        data[guildId]?.[userId];
+    const guildData =
+        data[message.guild.id];
 
-    if (!afk) {
-
-        const embed = new EmbedBuilder()
-            .setColor("#000000")
-            .setTitle("❌ AFK Bulunamadı")
-            .setDescription(
-                `${user} şu anda AFK değil.`
-            )
-            .setTimestamp();
-
+    if (!guildData?.[user.id]) {
         return message.reply({
-            embeds: [embed]
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("❌ AFK Bulunamadı")
+                    .setDescription(
+                        `${user.username} AFK değil.`
+                    )
+            ]
         });
     }
 
-    delete data[guildId][userId];
+    const afkData =
+        guildData[user.id];
 
-    if (
-        Object.keys(data[guildId]).length === 0
-    ) {
-        delete data[guildId];
-    }
+    delete guildData[user.id];
 
     saveData(data);
 
-    // Sadece kendi nickname'ini veya hedefin nickname'ini
-    // değiştirebilecek durumda ise geri al
     const member =
         await message.guild.members
-            .fetch(userId)
+            .fetch(user.id)
             .catch(() => null);
 
     if (member) {
-
-        await removeAFKNickname(
+        await removeNickname(
             member,
-            afk.oldNickname
+            afkData.oldNickname
         );
     }
 
-    const embed = new EmbedBuilder()
-        .setColor("#000000")
-        .setTitle("✅ AFK Kaldırıldı")
-        .setDescription(
-            `${user} kullanıcısının AFK durumu kaldırıldı.`
-        )
-        .setFooter({
-            text: `Bankai • ${message.guild.name}`
-        })
-        .setTimestamp();
-
-    return message.reply({
-        embeds: [embed]
+    await message.reply({
+        embeds: [
+            new EmbedBuilder()
+                .setColor("#000000")
+                .setTitle("✅ AFK İptal Edildi")
+                .setDescription(
+                    `**${user.username}** AFK durumundan çıkarıldı.`
+                )
+        ]
     });
 }
 
-// =====================================================
-// 🔥 MESAJ AFK SİSTEMİ
-// =====================================================
-
-async function handleMessage(message) {
-
-    if (!message.guild) {
-        return;
-    }
-
-    if (message.author.bot) {
-        return;
-    }
-
-    const data = loadData();
-
-    const guildId = message.guild.id;
-    const userId = message.author.id;
-
-    let changed = false;
-
-    // =================================================
-    // 1. MESAJ ATAN KİŞİ AFK MI?
-    // =================================================
-
-    if (data[guildId]?.[userId]) {
-
-        const afk =
-            data[guildId][userId];
-
-        delete data[guildId][userId];
-
-        if (
-            Object.keys(data[guildId]).length === 0
-        ) {
-            delete data[guildId];
-        }
-
-        saveData(data);
-
-        // Nickname geri getir
-        await removeAFKNickname(
-            message.member,
-            afk.oldNickname
-        );
-
-        const duration =
-            formatDuration(
-                Date.now() - afk.since
-            );
-
-        const embed = new EmbedBuilder()
-            .setColor("#000000")
-            .setTitle("👋 AFK Sona Erdi")
-            .setDescription(
-                `Tekrar hoş geldin ${message.author}!\n\n` +
-
-                `💬 **AFK sebebin:** ${afk.reason}\n` +
-
-                `⏱️ **AFK süren:** ${duration}\n\n` +
-
-                `🏷️ Eski nickname'in geri getirildi.`
-            )
-            .setFooter({
-                text: `Bankai • ${message.guild.name}`
-            })
-            .setTimestamp();
-
-        await message.reply({
-            embeds: [embed]
-        });
-
-        changed = true;
-    }
-
-    // =================================================
-    // 2. ETİKETLENEN AFK KİŞİLER
-    // =================================================
-
-    if (message.mentions.users.size > 0) {
-
-        for (
-            const mentionedUser
-            of message.mentions.users.values()
-        ) {
-
-            if (mentionedUser.bot) {
-                continue;
-            }
-
-            if (mentionedUser.id === userId) {
-                continue;
-            }
-
-            const afk =
-                data[guildId]?.[mentionedUser.id];
-
-            if (!afk) {
-                continue;
-            }
-
-            // Mention sayısını artır
-            afk.mentions =
-                (afk.mentions || 0) + 1;
-
-            saveData(data);
-
-            const duration =
-                formatDuration(
-                    Date.now() - afk.since
-                );
-
-            const embed = new EmbedBuilder()
-                .setColor("#000000")
-                .setTitle("💤 AFK Bildirimi")
-                .setDescription(
-                    `Etiketlediğin kişi şu anda AFK.\n\n` +
-
-                    `👤 **Kullanıcı:** <@${mentionedUser.id}>\n` +
-
-                    `💬 **Sebep:** ${afk.reason}\n` +
-
-                    `⏱️ **AFK süresi:** ${duration}\n` +
-
-                    `🔔 **Etiketlenme:** ${afk.mentions} kez`
-                )
-                .setFooter({
-                    text: `Bankai • ${message.guild.name}`
-                })
-                .setTimestamp();
-
-            await message.reply({
-                embeds: [embed]
-            });
-
-            // Spam olmaması için bir mesajda 1 bildirim
-            break;
-        }
-    }
-
-    return changed;
-}
-
-// =====================================================
-// 📦 EXPORT
-// =====================================================
 
 module.exports = {
-
     name: "afk",
-
-    aliases: [
-        "away"
-    ],
-
-    description:
-        "Gelişmiş AFK sistemi.",
+    aliases: ["away"],
+    description: "Gelişmiş AFK sistemi.",
 
     async execute(message, args) {
-
-        await execute(
-            message,
-            args
-        );
+        return execute(message, args);
     },
 
     handleMessage,
-
     afkInfo,
-
     afkList,
-
     cancelAFK,
-
     formatDuration
 };

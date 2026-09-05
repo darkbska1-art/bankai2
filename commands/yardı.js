@@ -87,7 +87,7 @@ data: new SlashCommandBuilder()
                 ]
             },
 
-            ticket: {
+            ayarlanabilir: {
                 name: "Ayarlanabilir Komutlar",
                 emoji: "📝",
                 commands: [

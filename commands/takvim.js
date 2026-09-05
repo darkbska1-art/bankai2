@@ -23,13 +23,21 @@ const DAY_NAMES = {
     saturday: "Cumartesi"
 };
 
-// Jikan'a istek at, hata/504 olursa tekrar dene
+// Jikan API'den veri çek
 async function fetchJikan(url, attempts = 3) {
     let lastError;
 
     for (let i = 1; i <= attempts; i++) {
         try {
-            const response = await fetch(url);
+            console.log(`📡 Jikan isteği: ${url}`);
+
+            const response = await fetch(url, {
+                headers: {
+                    "User-Agent": "Bankai Discord Bot"
+                }
+            });
+
+            console.log(`📡 Jikan cevap: ${response.status}`);
 
             if (response.ok) {
                 return await response.json();
@@ -39,20 +47,17 @@ async function fetchJikan(url, attempts = 3) {
                 `Jikan HTTP ${response.status}`
             );
 
-            console.log(
-                `⚠️ Jikan ${response.status} - Deneme ${i}/${attempts}`
-            );
-
-            // Rate limit veya 5xx ise bekle
-            if (
-                response.status === 429 ||
-                response.status >= 500
-            ) {
-                await new Promise(resolve =>
-                    setTimeout(resolve, 2500 * i)
+            if (response.status === 429 || response.status >= 500) {
+                console.log(
+                    `⚠️ Jikan ${response.status} - ${i}/${attempts}`
                 );
 
-                continue;
+                if (i < attempts) {
+                    await new Promise(resolve =>
+                        setTimeout(resolve, 3000 * i)
+                    );
+                    continue;
+                }
             }
 
             throw lastError;
@@ -60,13 +65,14 @@ async function fetchJikan(url, attempts = 3) {
         } catch (error) {
             lastError = error;
 
-            console.log(
-                `⚠️ Jikan bağlantı hatası - Deneme ${i}/${attempts}`
+            console.error(
+                `❌ Jikan hatası ${i}/${attempts}:`,
+                error.message
             );
 
             if (i < attempts) {
                 await new Promise(resolve =>
-                    setTimeout(resolve, 2500 * i)
+                    setTimeout(resolve, 3000 * i)
                 );
             }
         }
@@ -87,29 +93,42 @@ module.exports = {
 
     async execute(message) {
         try {
-            const today =
-                DAYS[new Date().getDay()];
+            const today = DAYS[new Date().getDay()];
+            const dayName = DAY_NAMES[today];
 
-            const dayName =
-                DAY_NAMES[today];
+            /*
+             * Önce normal endpoint deneniyor.
+             */
+            let result;
 
-            const url =
-                `${API}/schedules/${today}?limit=25`;
+            try {
+                result = await fetchJikan(
+                    `${API}/schedules/${today}?limit=25&sfw=true`
+                );
+            } catch (firstError) {
+                console.log(
+                    "⚠️ İlk takvim endpointi çalışmadı, alternatif deneniyor..."
+                );
 
-            const result =
-                await fetchJikan(url);
+                /*
+                 * Alternatif Jikan endpointi
+                 */
+                result = await fetchJikan(
+                    `${API}/schedules?filter=${today}&limit=25&sfw=true`
+                );
+            }
 
             const animeList =
-                Array.isArray(result.data)
+                Array.isArray(result?.data)
                     ? result.data
                     : [];
 
-            // Aynı anime birden fazla gelirse temizle
+            // Aynı animeyi tekrar gösterme
             const uniqueAnime = [];
             const seen = new Set();
 
             for (const anime of animeList) {
-                if (!anime.mal_id) continue;
+                if (!anime?.mal_id) continue;
 
                 if (seen.has(anime.mal_id)) {
                     continue;
@@ -140,8 +159,9 @@ module.exports = {
                 .slice(0, 15)
                 .map((anime, index) => {
                     const title =
-                        anime.title ||
                         anime.title_english ||
+                        anime.title ||
+                        anime.title_japanese ||
                         "Bilinmeyen Anime";
 
                     let time = "";
@@ -190,7 +210,7 @@ module.exports = {
                 .setTitle("❌ Anime Takvimi")
                 .setDescription(
                     "Anime yayın takvimi şu anda alınamıyor.\n\n" +
-                    "Jikan API geçici olarak yoğun olabilir. Birkaç saniye sonra tekrar dene."
+                    "Jikan API geçici olarak cevap vermiyor. Birkaç saniye sonra tekrar dene."
                 )
                 .setFooter({
                     text: "Bankai • Anime Takvimi"

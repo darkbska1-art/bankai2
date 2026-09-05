@@ -8,10 +8,6 @@ let data = {};
 const inviteCache = new Map();
 const guildQueues = new Map();
 
-// =====================================================
-// 💾 VERİ
-// =====================================================
-
 function loadData() {
     try {
         if (!fs.existsSync(DATA_FILE)) {
@@ -21,7 +17,6 @@ function loadData() {
         return JSON.parse(
             fs.readFileSync(DATA_FILE, "utf8")
         );
-
     } catch (error) {
         console.error("❌ davetler.json okunamadı:", error);
         return {};
@@ -35,21 +30,12 @@ function saveData() {
             JSON.stringify(data, null, 2),
             "utf8"
         );
-
     } catch (error) {
-        console.error(
-            "❌ davetler.json kaydedilemedi:",
-            error
-        );
+        console.error("❌ davetler.json kaydedilemedi:", error);
     }
 }
 
-// =====================================================
-// 🏠 SUNUCU VERİSİ
-// =====================================================
-
 function getGuildData(guildId) {
-
     if (!data[guildId]) {
         data[guildId] = {
             users: {},
@@ -59,45 +45,45 @@ function getGuildData(guildId) {
         };
     }
 
-    const guildData = data[guildId];
-
-    if (!guildData.users) guildData.users = {};
-    if (!guildData.members) guildData.members = {};
-    if (!guildData.rewards) guildData.rewards = {};
-
-    if (!("channelId" in guildData)) {
-        guildData.channelId = null;
+    if (!data[guildId].users) data[guildId].users = {};
+    if (!data[guildId].members) data[guildId].members = {};
+    if (!data[guildId].rewards) data[guildId].rewards = {};
+    if (!("channelId" in data[guildId])) {
+        data[guildId].channelId = null;
     }
 
-    return guildData;
+    return data[guildId];
 }
 
-// =====================================================
-// 📨 DAVETLERİ ÇEK
-// =====================================================
+function getUserData(guildData, userId) {
+    if (!guildData.users[userId]) {
+        guildData.users[userId] = {
+            total: 0,
+            valid: 0,
+            left: 0
+        };
+    }
+
+    return guildData.users[userId];
+}
 
 async function fetchInvites(guild) {
-
     try {
-
         const invites = await guild.invites.fetch();
 
         const result = new Map();
 
         for (const invite of invites.values()) {
-
             result.set(invite.code, {
                 code: invite.code,
                 uses: invite.uses || 0,
                 inviterId: invite.inviter?.id || null
             });
-
         }
 
         return result;
 
     } catch (error) {
-
         console.error(
             `❌ ${guild.name} davetleri alınamadı:`,
             error.message
@@ -107,20 +93,12 @@ async function fetchInvites(guild) {
     }
 }
 
-// =====================================================
-// 💾 DAVET CACHE
-// =====================================================
-
 async function updateInviteCache(guild) {
-
     const invites = await fetchInvites(guild);
 
     if (!invites) return false;
 
-    inviteCache.set(
-        guild.id,
-        invites
-    );
+    inviteCache.set(guild.id, invites);
 
     console.log(
         `📨 ${guild.name}: ${invites.size} davet cache'lendi.`
@@ -129,13 +107,8 @@ async function updateInviteCache(guild) {
     return true;
 }
 
-// =====================================================
-// 🔎 HANGİ DAVET KULLANILDI?
-// =====================================================
-
 function findUsedInvite(oldInvites, newInvites) {
 
-    // Kullanım sayısı artan davet
     for (const [code, newInvite] of newInvites) {
 
         const oldInvite = oldInvites.get(code);
@@ -147,41 +120,8 @@ function findUsedInvite(oldInvites, newInvites) {
         }
     }
 
-    // Yeni oluşturulmuş ve kullanılmış davet
-    for (const [code, newInvite] of newInvites) {
-
-        if (
-            !oldInvites.has(code) &&
-            newInvite.uses > 0
-        ) {
-            return newInvite;
-        }
-    }
-
     return null;
 }
-
-// =====================================================
-// 👤 KULLANICI
-// =====================================================
-
-function getUserData(guildData, userId) {
-
-    if (!guildData.users[userId]) {
-
-        guildData.users[userId] = {
-            total: 0,
-            valid: 0,
-            left: 0
-        };
-    }
-
-    return guildData.users[userId];
-}
-
-// =====================================================
-// 🔒 SUNUCU SIRALAMA KUYRUĞU
-// =====================================================
 
 function queueGuild(guildId, task) {
 
@@ -194,16 +134,11 @@ function queueGuild(guildId, task) {
             .catch(() => {})
             .then(task);
 
-    guildQueues.set(
-        guildId,
-        current
-    );
+    guildQueues.set(guildId, current);
 
     current.finally(() => {
 
-        if (
-            guildQueues.get(guildId) === current
-        ) {
+        if (guildQueues.get(guildId) === current) {
             guildQueues.delete(guildId);
         }
 
@@ -211,10 +146,6 @@ function queueGuild(guildId, task) {
 
     return current;
 }
-
-// =====================================================
-// 🎁 ÖDÜL ROLLERİ
-// =====================================================
 
 async function checkRewards(
     guild,
@@ -234,8 +165,7 @@ async function checkRewards(
 
     if (!member) return;
 
-    const me =
-        guild.members.me;
+    const me = guild.members.me;
 
     if (!me) return;
 
@@ -244,29 +174,21 @@ async function checkRewards(
         of Object.entries(guildData.rewards)
     ) {
 
-        const amount =
-            Number(amountString);
+        const amount = Number(amountString);
 
-        if (!Number.isFinite(amount)) {
-            continue;
-        }
+        if (!Number.isFinite(amount)) continue;
 
-        if (userData.valid < amount) {
-            continue;
-        }
+        if (userData.valid < amount) continue;
 
         const role =
             guild.roles.cache.get(roleId);
 
-        if (!role) {
-            continue;
-        }
+        if (!role) continue;
 
         if (
             role.position >=
             me.roles.highest.position
         ) {
-
             console.log(
                 `⚠️ ${guild.name}: ${role.name} botun rolünden yukarıda.`
             );
@@ -274,47 +196,39 @@ async function checkRewards(
             continue;
         }
 
-        if (
-            !member.roles.cache.has(role.id)
-        ) {
+        if (!member.roles.cache.has(role.id)) {
 
             await member.roles
                 .add(role)
                 .then(() => {
-
                     console.log(
                         `🎁 ${guild.name}: ${member.user.tag} → ${role.name}`
                     );
-
                 })
                 .catch(error => {
-
                     console.error(
-                        `❌ Rol verilemedi:`,
+                        "❌ Rol verilemedi:",
                         error.message
                     );
-
                 });
         }
     }
 }
 
-// =====================================================
-// 🎉 ÜYE KATILDI
-// =====================================================
-
 async function handleMemberAdd(member) {
 
-    const guild =
-        member.guild;
+    const guild = member.guild;
 
     return queueGuild(
         guild.id,
         async () => {
 
-            // Discord'un davet kullanımını güncellemesi için bekle
-            await new Promise(
-                resolve => setTimeout(resolve, 1500)
+            console.log(
+                `👤 ${member.user.tag} sunucuya katıldı.`
+            );
+
+            await new Promise(resolve =>
+                setTimeout(resolve, 2000)
             );
 
             const oldInvites =
@@ -324,21 +238,21 @@ async function handleMemberAdd(member) {
                 await fetchInvites(guild);
 
             if (!newInvites) {
+                console.log(
+                    "❌ Yeni davetler alınamadı."
+                );
                 return;
             }
 
-            // Cache'i hemen güncelle
             inviteCache.set(
                 guild.id,
                 newInvites
             );
 
             if (!oldInvites) {
-
                 console.log(
-                    `⚠️ ${guild.name}: Eski davet cache'i bulunamadı.`
+                    "⚠️ Eski davet cache'i bulunamadı."
                 );
-
                 return;
             }
 
@@ -351,7 +265,7 @@ async function handleMemberAdd(member) {
             if (!usedInvite) {
 
                 console.log(
-                    `❓ ${guild.name}: ${member.user.tag} katıldı fakat kullanılan davet bulunamadı.`
+                    `❓ ${member.user.tag} için kullanılan davet bulunamadı.`
                 );
 
                 return;
@@ -360,7 +274,7 @@ async function handleMemberAdd(member) {
             if (!usedInvite.inviterId) {
 
                 console.log(
-                    `❓ ${guild.name}: Davetin sahibi bulunamadı.`
+                    "❓ Davetin sahibi bulunamadı."
                 );
 
                 return;
@@ -375,33 +289,19 @@ async function handleMemberAdd(member) {
                     usedInvite.inviterId
                 );
 
-            // =================================================
-            // 📊 DAVET SAY
-            // =================================================
-
             inviter.total++;
             inviter.valid++;
 
             guildData.members[member.id] = {
-
-                inviterId:
-                    usedInvite.inviterId,
-
-                inviteCode:
-                    usedInvite.code,
-
-                joinedAt:
-                    Date.now()
+                inviterId: usedInvite.inviterId,
+                inviteCode: usedInvite.code,
+                joinedAt: Date.now()
             };
 
             saveData();
 
             console.log(
-                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-            );
-
-            console.log(
-                `🎉 YENİ DAVET`
+                `🎉 DAVET TESPİT EDİLDİ`
             );
 
             console.log(
@@ -409,7 +309,7 @@ async function handleMemberAdd(member) {
             );
 
             console.log(
-                `📨 Davet kodu: ${usedInvite.code}`
+                `📨 Kod: ${usedInvite.code}`
             );
 
             console.log(
@@ -420,79 +320,99 @@ async function handleMemberAdd(member) {
                 `📈 Geçerli davet: ${inviter.valid}`
             );
 
-            console.log(
-                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-            );
-
-            // =================================================
-            // 🎁 ÖDÜL
-            // =================================================
-
+            // ÖDÜL KONTROLÜ
             await checkRewards(
                 guild,
                 usedInvite.inviterId,
                 guildData
             );
 
-            // =================================================
-            // 📢 KANAL MESAJI
-            // =================================================
+            // =====================================================
+            // 📢 KANALA MESAJ
+            // =====================================================
 
-            if (guildData.channelId) {
+            if (!guildData.channelId) {
 
-                const channel =
-                    guild.channels.cache.get(
-                        guildData.channelId
-                    );
+                console.log(
+                    `⚠️ ${guild.name}: Davet bildirim kanalı ayarlanmamış.`
+                );
 
-                if (
-                    channel &&
-                    channel.isTextBased()
-                ) {
+                return;
+            }
 
-                    const inviterMember =
-                        await guild.members
-                            .fetch(usedInvite.inviterId)
-                            .catch(() => null);
+            console.log(
+                `📢 Bildirim kanalı aranıyor: ${guildData.channelId}`
+            );
 
-                    const inviterName =
-                        inviterMember?.user?.tag ||
-                        `<@${usedInvite.inviterId}>`;
+            const channel =
+                guild.channels.cache.get(
+                    guildData.channelId
+                );
 
-                    await channel.send({
+            if (!channel) {
 
-                        content:
-                            `🎉 **Yeni Davet!**\n\n` +
-                            `👤 Katılan: **${member.user.tag}**\n` +
-                            `📨 Davet eden: **${inviterName}**\n` +
-                            `📈 Geçerli davet: **${inviter.valid}**`
+                console.log(
+                    "❌ Bildirim kanalı bulunamadı."
+                );
 
-                    }).catch(() => {});
-                }
+                return;
+            }
+
+            if (!channel.isTextBased()) {
+
+                console.log(
+                    "❌ Bildirim kanalı mesaj gönderilebilir bir kanal değil."
+                );
+
+                return;
+            }
+
+            const inviterMember =
+                await guild.members
+                    .fetch(usedInvite.inviterId)
+                    .catch(() => null);
+
+            const inviterName =
+                inviterMember?.user?.tag ||
+                `<@${usedInvite.inviterId}>`;
+
+            try {
+
+                await channel.send({
+                    content:
+                        `🎉 **Yeni Davet!**\n\n` +
+                        `👤 **Katılan:** ${member.user}\n` +
+                        `📨 **Davet Eden:** ${inviterName}\n` +
+                        `🔗 **Davet Kodu:** \`${usedInvite.code}\`\n` +
+                        `📈 **Toplam Geçerli Davet:** **${inviter.valid}**`
+                });
+
+                console.log(
+                    `✅ Davet mesajı kanala gönderildi: #${channel.name}`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    `❌ ${channel.name} kanalına mesaj gönderilemedi:`,
+                    error.message
+                );
             }
         }
     );
 }
-
-// =====================================================
-// 📤 ÜYE AYRILDI
-// =====================================================
 
 async function handleMemberRemove(member) {
 
     try {
 
         const guildData =
-            getGuildData(
-                member.guild.id
-            );
+            getGuildData(member.guild.id);
 
         const inviteInfo =
             guildData.members[member.id];
 
-        if (!inviteInfo) {
-            return;
-        }
+        if (!inviteInfo) return;
 
         const inviter =
             guildData.users[
@@ -508,14 +428,12 @@ async function handleMemberRemove(member) {
             inviter.left++;
         }
 
-        delete guildData.members[
-            member.id
-        ];
+        delete guildData.members[member.id];
 
         saveData();
 
         console.log(
-            `📤 ${member.user.tag} çıktı. Davet geçerliliği güncellendi.`
+            `📤 ${member.user.tag} çıktı.`
         );
 
     } catch (error) {
@@ -527,10 +445,6 @@ async function handleMemberRemove(member) {
     }
 }
 
-// =====================================================
-// 🚀 BAŞLAT
-// =====================================================
-
 module.exports = function startInviteSystem(client) {
 
     data = loadData();
@@ -539,19 +453,20 @@ module.exports = function startInviteSystem(client) {
         "📨 Davet takip sistemi başlatılıyor..."
     );
 
-    // Bot hazır olduğunda bütün davetleri cache'le
     client.once(
         "clientReady",
         async () => {
+
+            console.log(
+                "🔄 Davetler hazırlanıyor..."
+            );
 
             for (
                 const guild
                 of client.guilds.cache.values()
             ) {
 
-                await updateInviteCache(
-                    guild
-                );
+                await updateInviteCache(guild);
             }
 
             console.log(
@@ -560,22 +475,23 @@ module.exports = function startInviteSystem(client) {
         }
     );
 
-    // Üye katıldı
     client.on(
         "guildMemberAdd",
         handleMemberAdd
     );
 
-    // Üye ayrıldı
     client.on(
         "guildMemberRemove",
         handleMemberRemove
     );
 
-    // Yeni davet oluşturuldu
     client.on(
         "inviteCreate",
         async invite => {
+
+            console.log(
+                `📨 Yeni davet oluşturuldu: ${invite.code}`
+            );
 
             await updateInviteCache(
                 invite.guild
@@ -583,7 +499,6 @@ module.exports = function startInviteSystem(client) {
         }
     );
 
-    // Davet silindi
     client.on(
         "inviteDelete",
         async invite => {
@@ -594,7 +509,6 @@ module.exports = function startInviteSystem(client) {
         }
     );
 
-    // Bot yeni sunucuya girdi
     client.on(
         "guildCreate",
         async guild => {

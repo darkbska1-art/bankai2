@@ -1,75 +1,49 @@
 
 const {
     EmbedBuilder,
-    PermissionFlagsBits
+    PermissionFlagsBits,
+    SlashCommandBuilder
 } = require("discord.js");
 
 const fs = require("fs");
 const path = require("path");
 
-const DATA_FILE = path.join(
-    process.cwd(),
-    "davetler.json"
-);
+const DATA_FILE = path.join(process.cwd(), "davetler.json");
 
 // =====================================================
-// 💾 VERİ OKU
+// 📁 VERİ SİSTEMİ
 // =====================================================
 
 function loadData() {
     try {
-
         if (!fs.existsSync(DATA_FILE)) {
-            fs.writeFileSync(
-                DATA_FILE,
-                "{}",
-                "utf8"
-            );
+            fs.writeFileSync(DATA_FILE, "{}", "utf8");
         }
 
         return JSON.parse(
-            fs.readFileSync(
-                DATA_FILE,
-                "utf8"
-            )
+            fs.readFileSync(DATA_FILE, "utf8")
         );
-
     } catch (error) {
-
-        console.error(
-            "❌ davetler.json okunamadı:",
-            error
-        );
-
+        console.error("❌ davetler.json okunamadı:", error);
         return {};
     }
 }
 
-// =====================================================
-// 💾 VERİ KAYDET
-// =====================================================
-
 function saveData(data) {
-
-    fs.writeFileSync(
-        DATA_FILE,
-        JSON.stringify(
-            data,
-            null,
-            2
-        ),
-        "utf8"
-    );
+    try {
+        fs.writeFileSync(
+            DATA_FILE,
+            JSON.stringify(data, null, 2),
+            "utf8"
+        );
+    } catch (error) {
+        console.error("❌ davetler.json kaydedilemedi:", error);
+    }
 }
-
-// =====================================================
-// 🏠 SUNUCU VERİSİ
-// =====================================================
 
 function getGuildData(data, guildId) {
 
     if (!data[guildId]) {
-
         data[guildId] = {
             users: {},
             members: {},
@@ -97,14 +71,9 @@ function getGuildData(data, guildId) {
     return data[guildId];
 }
 
-// =====================================================
-// 📊 KULLANICI VERİSİ
-// =====================================================
-
 function getUserData(guildData, userId) {
 
     if (!guildData.users[userId]) {
-
         guildData.users[userId] = {
             total: 0,
             valid: 0,
@@ -113,6 +82,233 @@ function getUserData(guildData, userId) {
     }
 
     return guildData.users[userId];
+}
+
+// =====================================================
+// 👤 ÜYE GETİR
+// =====================================================
+
+async function getMember(message) {
+
+    if (message.member) {
+        return message.member;
+    }
+
+    if (!message.guild) {
+        return null;
+    }
+
+    return await message.guild.members
+        .fetch(message.author.id)
+        .catch(() => null);
+}
+
+// =====================================================
+// 🎨 ANA DAVET EMBEDİ
+// =====================================================
+
+function createInviteEmbed(guild, user, userData) {
+
+    const total = userData.total || 0;
+    const valid = userData.valid || 0;
+    const left = userData.left || 0;
+
+    return new EmbedBuilder()
+        .setColor("Blue")
+        .setAuthor({
+            name: `${user.username} • Davet İstatistikleri`,
+            iconURL: user.displayAvatarURL({ size: 256 })
+        })
+        .setTitle("📨 Davet Bilgilerin")
+        .setDescription(
+            `**${user}** kullanıcısının davet istatistikleri aşağıda gösteriliyor.`
+        )
+        .addFields(
+            {
+                name: "📨 Toplam Davet",
+                value: `**${total}**`,
+                inline: true
+            },
+            {
+                name: "✅ Geçerli",
+                value: `**${valid}**`,
+                inline: true
+            },
+            {
+                name: "📤 Ayrılan",
+                value: `**${left}**`,
+                inline: true
+            }
+        )
+        .addFields({
+            name: "📊 Durum",
+            value:
+                `👥 Toplam: **${total}**\n` +
+                `✅ Geçerli: **${valid}**\n` +
+                `📤 Ayrılan: **${left}**`,
+            inline: false
+        })
+        .setThumbnail(
+            user.displayAvatarURL({ size: 512 })
+        )
+        .setFooter({
+            text: `${guild.name} • Davet Sistemi`
+        })
+        .setTimestamp();
+}
+
+// =====================================================
+// 🏆 SIRALAMA EMBEDİ
+// =====================================================
+
+async function createLeaderboardEmbed(
+    guild,
+    guildData
+) {
+
+    const users = Object.entries(guildData.users)
+        .filter(([, data]) => {
+            return (data.valid || 0) > 0;
+        })
+        .sort((a, b) => {
+            return (b[1].valid || 0) -
+                (a[1].valid || 0);
+        })
+        .slice(0, 10);
+
+    if (!users.length) {
+        return new EmbedBuilder()
+            .setColor("Gold")
+            .setTitle("🏆 Davet Sıralaması")
+            .setDescription(
+                "📭 Henüz sıralamada gösterilecek davet verisi bulunmuyor."
+            )
+            .setFooter({
+                text: `${guild.name} • Davet Sistemi`
+            });
+    }
+
+    let description = "";
+
+    for (let i = 0; i < users.length; i++) {
+
+        const [userId, userData] = users[i];
+
+        let medal;
+
+        if (i === 0) medal = "🥇";
+        else if (i === 1) medal = "🥈";
+        else if (i === 2) medal = "🥉";
+        else medal = `**${i + 1}.**`;
+
+        description +=
+            `${medal} <@${userId}> — ` +
+            `✅ **${userData.valid || 0}** geçerli davet\n`;
+    }
+
+    return new EmbedBuilder()
+        .setColor("Gold")
+        .setTitle("🏆 Davet Sıralaması")
+        .setDescription(description)
+        .addFields({
+            name: "📊 Sıralama",
+            value:
+                `Sunucudaki en fazla **geçerli davete** sahip ilk 10 kişi gösteriliyor.`,
+            inline: false
+        })
+        .setFooter({
+            text: `${guild.name} • İlk 10`
+        })
+        .setTimestamp();
+}
+
+// =====================================================
+// 🎁 ÖDÜLLER EMBEDİ
+// =====================================================
+
+function createRewardsEmbed(
+    guild,
+    guildData
+) {
+
+    const rewards =
+        Object.entries(guildData.rewards)
+            .sort((a, b) => Number(a[0]) - Number(b[0]));
+
+    if (!rewards.length) {
+
+        return new EmbedBuilder()
+            .setColor("Orange")
+            .setTitle("🎁 Davet Ödülleri")
+            .setDescription(
+                "📭 Bu sunucuda henüz davet ödülü ayarlanmamış."
+            )
+            .setFooter({
+                text: `${guild.name} • Davet Sistemi`
+            });
+    }
+
+    let description = "";
+
+    for (const [amount, roleId] of rewards) {
+
+        description +=
+            `🎟️ **${amount} davet** → <@&${roleId}>\n`;
+    }
+
+    return new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("🎁 Davet Ödülleri")
+        .setDescription(description)
+        .addFields({
+            name: "ℹ️ Bilgi",
+            value:
+                "Belirtilen geçerli davet sayısına ulaşıldığında ödül rolü otomatik verilir.",
+            inline: false
+        })
+        .setFooter({
+            text: `${guild.name} • Davet Sistemi`
+        })
+        .setTimestamp();
+}
+
+// =====================================================
+// 📋 YARDIM EMBEDİ
+// =====================================================
+
+function createHelpEmbed(guild) {
+
+    return new EmbedBuilder()
+        .setColor("Blue")
+        .setTitle("📨 Davet Sistemi")
+        .setDescription(
+            "Davet sistemini aşağıdaki komutlarla kullanabilirsin."
+        )
+        .addFields(
+            {
+                name: "👤 Kullanıcı Komutları",
+                value:
+                    "`B!davet` → Kendi davetlerini gösterir\n" +
+                    "`B!davet @Üye` → Bir üyenin davetlerini gösterir\n" +
+                    "`B!davet sıralama` → Davet sıralamasını gösterir\n" +
+                    "`B!davet ödüller` → Davet ödüllerini gösterir",
+                inline: false
+            },
+            {
+                name: "⚙️ Yönetici Komutları",
+                value:
+                    "`B!davet ödül 10 @Rol` → Ödül ekler\n" +
+                    "`B!davet ödülsil 10` → Ödül siler\n" +
+                    "`B!davet kanal #kanal` → Bildirim kanalı ayarlar\n" +
+                    "`B!davet kanalkapat` → Bildirim kanalını kapatır\n" +
+                    "`B!davet sıfırla @Üye` → Üyenin davetlerini sıfırlar",
+                inline: false
+            }
+        )
+        .setFooter({
+            text: `${guild.name} • Davet Sistemi`
+        })
+        .setTimestamp();
 }
 
 // =====================================================
@@ -128,9 +324,25 @@ module.exports = {
         "invites"
     ],
 
+    // Slash komut
+    data: new SlashCommandBuilder()
+        .setName("davet")
+        .setDescription("Davet istatistiklerini görüntüler")
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("bilgi")
+                .setDescription("Kendi davet bilgilerini gösterir")
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("siralama")
+                .setDescription("Davet sıralamasını gösterir")
+        ),
+
     async execute(message, args) {
 
         if (!message.guild) {
+
             return message.reply(
                 "❌ Bu komut sadece sunucularda kullanılabilir."
             );
@@ -145,7 +357,7 @@ module.exports = {
             );
 
         // =================================================
-        // 📊 KENDİ DAVETLERİ
+        // 👤 B!davet
         // =================================================
 
         if (!args[0]) {
@@ -156,53 +368,40 @@ module.exports = {
                     message.author.id
                 );
 
-            const embed =
-                new EmbedBuilder()
-                    .setTitle("📨 Davet Bilgilerin")
-                    .setDescription(
-                        `👤 **Kullanıcı:** ${message.author}\n\n` +
-                        `📨 **Toplam:** ${userData.total}\n` +
-                        `✅ **Geçerli:** ${userData.valid}\n` +
-                        `📤 **Ayrılan:** ${userData.left}`
-                    )
-                    .setColor("Blue")
-                    .setFooter({
-                        text: message.guild.name
-                    });
-
             return message.reply({
-                embeds: [embed]
+                embeds: [
+                    createInviteEmbed(
+                        message.guild,
+                        message.author,
+                        userData
+                    )
+                ]
             });
         }
 
         // =================================================
-        // 👤 BAŞKA KULLANICI
+        // 👤 B!davet @Üye
         // =================================================
 
-        if (message.mentions.users.first()) {
+        const mentionedUser =
+            message.mentions?.users?.first?.();
 
-            const user =
-                message.mentions.users.first();
+        if (mentionedUser) {
 
             const userData =
                 getUserData(
                     guildData,
-                    user.id
+                    mentionedUser.id
                 );
 
-            const embed =
-                new EmbedBuilder()
-                    .setTitle("📨 Davet Bilgileri")
-                    .setDescription(
-                        `👤 **Kullanıcı:** ${user}\n\n` +
-                        `📨 **Toplam:** ${userData.total}\n` +
-                        `✅ **Geçerli:** ${userData.valid}\n` +
-                        `📤 **Ayrılan:** ${userData.left}`
-                    )
-                    .setColor("Blue");
-
             return message.reply({
-                embeds: [embed]
+                embeds: [
+                    createInviteEmbed(
+                        message.guild,
+                        mentionedUser,
+                        userData
+                    )
+                ]
             });
         }
 
@@ -219,54 +418,33 @@ module.exports = {
             command === "leaderboard"
         ) {
 
-            const users =
-                Object.entries(
-                    guildData.users
-                )
-                    .sort(
-                        (a, b) =>
-                            b[1].valid -
-                            a[1].valid
-                    )
-                    .slice(0, 10);
-
-            if (!users.length) {
-
-                return message.reply(
-                    "📭 Henüz davet verisi bulunmuyor."
-                );
-            }
-
-            let description = "";
-
-            for (
-                let i = 0;
-                i < users.length;
-                i++
-            ) {
-
-                const [
-                    userId,
-                    userData
-                ] = users[i];
-
-                description +=
-                    `**${i + 1}.** <@${userId}> — ` +
-                    `✅ **${userData.valid}** davet\n`;
-            }
-
             const embed =
-                new EmbedBuilder()
-                    .setTitle("🏆 Davet Sıralaması")
-                    .setDescription(description)
-                    .setColor("Gold")
-                    .setFooter({
-                        text:
-                            `${message.guild.name} • İlk 10`
-                    });
+                await createLeaderboardEmbed(
+                    message.guild,
+                    guildData
+                );
 
             return message.reply({
                 embeds: [embed]
+            });
+        }
+
+        // =================================================
+        // 🎁 ÖDÜLLER
+        // =================================================
+
+        if (
+            command === "ödüller" ||
+            command === "oduller"
+        ) {
+
+            return message.reply({
+                embeds: [
+                    createRewardsEmbed(
+                        message.guild,
+                        guildData
+                    )
+                ]
             });
         }
 
@@ -279,8 +457,12 @@ module.exports = {
             command === "odul"
         ) {
 
+            const member =
+                await getMember(message);
+
             if (
-                !message.member.permissions.has(
+                !member ||
+                !member.permissions.has(
                     PermissionFlagsBits.ManageGuild
                 )
             ) {
@@ -294,7 +476,7 @@ module.exports = {
                 Number(args[1]);
 
             const role =
-                message.mentions.roles.first();
+                message.mentions?.roles?.first?.();
 
             if (
                 !Number.isInteger(amount) ||
@@ -307,61 +489,39 @@ module.exports = {
                 );
             }
 
-            guildData.rewards[
-                amount
-            ] = role.id;
+            guildData.rewards[amount] =
+                role.id;
 
             saveData(data);
 
-            return message.reply(
-                `🎁 **${amount} davet** karşılığında ${role} rolü verilecek.`
-            );
-        }
-
-        // =================================================
-        // 🎁 ÖDÜLLER
-        // =================================================
-
-        if (
-            command === "ödüller" ||
-            command === "oduller"
-        ) {
-
-            const rewards =
-                Object.entries(
-                    guildData.rewards
-                );
-
-            if (!rewards.length) {
-
-                return message.reply(
-                    "📭 Henüz ödül ayarlanmamış."
-                );
-            }
-
-            let text = "";
-
-            for (
-                const [amount, roleId]
-                of rewards
-            ) {
-
-                text +=
-                    `🎁 **${amount} davet** → <@&${roleId}>\n`;
-            }
+            const embed =
+                new EmbedBuilder()
+                    .setColor("Green")
+                    .setTitle("🎁 Davet Ödülü Ayarlandı")
+                    .setDescription(
+                        `**${amount} geçerli davete** ulaşanlara ${role} rolü verilecek.`
+                    )
+                    .addFields({
+                        name: "🎟️ Gereken Davet",
+                        value: `**${amount}**`,
+                        inline: true
+                    }, {
+                        name: "🏷️ Ödül Rolü",
+                        value: `${role}`,
+                        inline: true
+                    })
+                    .setFooter({
+                        text: `${message.guild.name} • Davet Sistemi`
+                    })
+                    .setTimestamp();
 
             return message.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setTitle("🎁 Davet Ödülleri")
-                        .setDescription(text)
-                        .setColor("Green")
-                ]
+                embeds: [embed]
             });
         }
 
         // =================================================
-        // ❌ ÖDÜL SİL
+        // 🗑️ ÖDÜL SİL
         // =================================================
 
         if (
@@ -369,8 +529,12 @@ module.exports = {
             command === "odulsil"
         ) {
 
+            const member =
+                await getMember(message);
+
             if (
-                !message.member.permissions.has(
+                !member ||
+                !member.permissions.has(
                     PermissionFlagsBits.ManageGuild
                 )
             ) {
@@ -383,43 +547,56 @@ module.exports = {
             const amount =
                 Number(args[1]);
 
-            if (
-                !Number.isInteger(amount)
-            ) {
+            if (!Number.isInteger(amount)) {
 
                 return message.reply(
                     "❌ Kullanım: `B!davet ödülsil 10`"
                 );
             }
 
-            if (
-                !guildData.rewards[amount]
-            ) {
+            if (!guildData.rewards[amount]) {
 
                 return message.reply(
-                    "❌ Bu sayıda davet için ödül bulunamadı."
+                    "❌ Bu sayıda davet için ayarlanmış bir ödül bulunamadı."
                 );
             }
 
-            delete guildData.rewards[
-                amount
-            ];
+            const roleId =
+                guildData.rewards[amount];
+
+            delete guildData.rewards[amount];
 
             saveData(data);
 
-            return message.reply(
-                `🗑️ **${amount} davet** ödülü silindi.`
-            );
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Red")
+                        .setTitle("🗑️ Davet Ödülü Silindi")
+                        .setDescription(
+                            `**${amount} davet** ödülü başarıyla kaldırıldı.\n\n` +
+                            `🏷️ Rol: <@&${roleId}>`
+                        )
+                        .setFooter({
+                            text: `${message.guild.name} • Davet Sistemi`
+                        })
+                        .setTimestamp()
+                ]
+            });
         }
 
         // =================================================
-        // 📢 DAVET KANALI
+        // 📢 KANAL AYARLA
         // =================================================
 
         if (command === "kanal") {
 
+            const member =
+                await getMember(message);
+
             if (
-                !message.member.permissions.has(
+                !member ||
+                !member.permissions.has(
                     PermissionFlagsBits.ManageGuild
                 )
             ) {
@@ -430,7 +607,7 @@ module.exports = {
             }
 
             const channel =
-                message.mentions.channels.first();
+                message.mentions?.channels?.first?.();
 
             if (!channel) {
 
@@ -444,19 +621,42 @@ module.exports = {
 
             saveData(data);
 
-            return message.reply(
-                `📢 Davet bildirim kanalı ${channel} olarak ayarlandı.`
-            );
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Green")
+                        .setTitle("📢 Davet Bildirim Kanalı")
+                        .setDescription(
+                            `Yeni davet bildirimleri artık ${channel} kanalına gönderilecek.`
+                        )
+                        .addFields({
+                            name: "📍 Kanal",
+                            value: `${channel}`,
+                            inline: true
+                        })
+                        .setFooter({
+                            text: `${message.guild.name} • Davet Sistemi`
+                        })
+                        .setTimestamp()
+                ]
+            });
         }
 
         // =================================================
-        // 🔕 KANALI KAPAT
+        // 🔕 KANAL KAPAT
         // =================================================
 
-        if (command === "kanalkapat") {
+        if (
+            command === "kanalkapat" ||
+            command === "kanal-kapat"
+        ) {
+
+            const member =
+                await getMember(message);
 
             if (
-                !message.member.permissions.has(
+                !member ||
+                !member.permissions.has(
                     PermissionFlagsBits.ManageGuild
                 )
             ) {
@@ -470,9 +670,20 @@ module.exports = {
 
             saveData(data);
 
-            return message.reply(
-                "🔕 Davet bildirim kanalı kapatıldı."
-            );
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Red")
+                        .setTitle("🔕 Davet Bildirimleri Kapatıldı")
+                        .setDescription(
+                            "Davet bildirimleri için ayarlanmış kanal kaldırıldı."
+                        )
+                        .setFooter({
+                            text: `${message.guild.name} • Davet Sistemi`
+                        })
+                        .setTimestamp()
+                ]
+            });
         }
 
         // =================================================
@@ -484,8 +695,12 @@ module.exports = {
             command === "sifirla"
         ) {
 
+            const member =
+                await getMember(message);
+
             if (
-                !message.member.permissions.has(
+                !member ||
+                !member.permissions.has(
                     PermissionFlagsBits.ManageGuild
                 )
             ) {
@@ -496,7 +711,7 @@ module.exports = {
             }
 
             const user =
-                message.mentions.users.first();
+                message.mentions?.users?.first?.();
 
             if (!user) {
 
@@ -505,9 +720,7 @@ module.exports = {
                 );
             }
 
-            delete guildData.users[
-                user.id
-            ];
+            delete guildData.users[user.id];
 
             for (
                 const memberId
@@ -515,21 +728,30 @@ module.exports = {
             ) {
 
                 if (
-                    guildData.members[memberId]
-                        .inviterId === user.id
+                    guildData.members[memberId].inviterId ===
+                    user.id
                 ) {
 
-                    delete guildData.members[
-                        memberId
-                    ];
+                    delete guildData.members[memberId];
                 }
             }
 
             saveData(data);
 
-            return message.reply(
-                `🗑️ ${user} kullanıcısının davet verileri sıfırlandı.`
-            );
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Red")
+                        .setTitle("🗑️ Davet Verileri Sıfırlandı")
+                        .setDescription(
+                            `${user} kullanıcısının davet verileri sıfırlandı.`
+                        )
+                        .setFooter({
+                            text: `${message.guild.name} • Davet Sistemi`
+                        })
+                        .setTimestamp()
+                ]
+            });
         }
 
         // =================================================
@@ -538,21 +760,9 @@ module.exports = {
 
         return message.reply({
             embeds: [
-                new EmbedBuilder()
-                    .setTitle("📨 Davet Sistemi")
-                    .setDescription(
-                        `**B!davet** → Davet bilgilerin\n` +
-                        `**B!davet @Üye** → Üyenin davetleri\n` +
-                        `**B!davet sıralama** → Davet sıralaması\n\n` +
-                        `**Yönetici:**\n` +
-                        `B!davet ödül 10 @Rol\n` +
-                        `B!davet ödüller\n` +
-                        `B!davet ödülsil 10\n` +
-                        `B!davet kanal #kanal\n` +
-                        `B!davet kanalkapat\n` +
-                        `B!davet sıfırla @Üye`
-                    )
-                    .setColor("Blue")
+                createHelpEmbed(
+                    message.guild
+                )
             ]
         });
     }

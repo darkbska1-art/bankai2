@@ -514,6 +514,19 @@ const fakeMessage = {
 });
 
 
+// =====================================================
+// 📨 DAVET TAKİP
+// =====================================================
+
+try {
+    const inviteEvent = require("./events/davet.js");
+    inviteEvent(client);
+    console.log("📨 Davet takip sistemi yüklendi!");
+} catch (error) {
+    console.error("❌ Davet sistemi yüklenemedi:");
+    console.error(error);
+}
+
 
 
 

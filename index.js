@@ -24,6 +24,7 @@ const {
 const fs = require("fs");
 const path = require("path");
 const config = require("./config.js");
+const { updateUserStreak } = require("./database/streak");
 
 
 // =====================================================
@@ -104,7 +105,6 @@ for (const file of commandFiles) {
         console.error(error);
     }
 }
-
 // =====================================================
 // 💬 MESAJ KOMUTLARI
 // =====================================================
@@ -151,6 +151,16 @@ client.on("messageCreate", async message => {
         console.log(
             `📥 Komut: ${prefix}${commandName} | ${message.author.tag}`
         );
+
+        // =====================================================
+        // 🔥 GLOBAL SERİ
+        // =====================================================
+
+        updateUserStreak(message.author.id);
+
+        // =====================================================
+        // ▶️ KOMUTU ÇALIŞTIR
+        // =====================================================
 
         await command.execute(
             message,

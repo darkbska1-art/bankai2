@@ -25,6 +25,7 @@ const fs = require("fs");
 const path = require("path");
 const config = require("./config.js");
 const { updateUserStreak } = require("./database/streak");
+const sureliRol = require("./commands/sürelirol.js");
 
 
 // =====================================================

@@ -7,36 +7,18 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function jikan(path, retries = 3) {
-
+async function jikanRequest(url, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
-
         try {
-
-            const response = await fetch(
-                `${API}${path}`,
-                {
-                    headers: {
-                        "User-Agent": "Bankai-Discord-Bot/1.0"
-                    }
+            const response = await fetch(url, {
+                headers: {
+                    "User-Agent": "Bankai-Discord-Bot/1.0"
                 }
-            );
+            });
 
-            // Jikan rate limit
             if (response.status === 429) {
-
-                if (attempt < retries) {
-                    console.log(
-                        `⏳ Jikan 429. ${attempt}. deneme, 2 saniye bekleniyor...`
-                    );
-
-                    await sleep(2000);
-                    continue;
-                }
-
-                throw new Error(
-                    "Jikan API rate limit (429)"
-                );
+                await sleep(3000);
+                continue;
             }
 
             if (!response.ok) {
@@ -48,22 +30,16 @@ async function jikan(path, retries = 3) {
             return await response.json();
 
         } catch (error) {
-
             if (attempt >= retries) {
                 throw error;
             }
 
-            console.log(
-                `⚠️ Jikan bağlantı hatası. ${attempt}. tekrar denenecek...`
-            );
-
-            await sleep(1500);
+            await sleep(2000);
         }
     }
 }
 
 module.exports = {
-
     name: "manga",
 
     aliases: [
@@ -72,60 +48,55 @@ module.exports = {
     ],
 
     description:
-        "Jikan üzerinden manga bilgisi gösterir.",
+        "Jikan üzerinden manga arar.",
 
     async execute(message, args) {
-
         if (!args.length) {
-
             return message.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("#000000")
-                        .setTitle("📖 Manga Sistemi")
+                        .setTitle("📖 Manga Arama")
                         .setDescription(
                             "Manga aramak için:\n\n" +
                             "`B!manga One Piece`\n" +
-                            "`B!manga Naruto`\n\n" +
-                            "Birden fazla sonuç için:\n" +
-                            "`B!mangaara One Piece`"
+                            "`B!manga Naruto`\n" +
+                            "`B!manga Berserk`"
                         )
                         .setFooter({
-                            text: "Bankai Manga Sistemi"
+                            text: "Bankai Manga Sistemi • Jikan"
                         })
                 ]
             });
         }
 
-        const query = args
-            .join(" ")
-            .trim();
+        const query =
+            args.join(" ").trim();
 
         try {
-
-            const result = await jikan(
-                `/manga?q=${encodeURIComponent(query)}&limit=1`
-            );
+            const result =
+                await jikanRequest(
+                    `${API}/manga?q=${encodeURIComponent(query)}&limit=5`
+                );
 
             if (
-                !result ||
-                !Array.isArray(result.data) ||
-                result.data.length === 0
+                !result?.data ||
+                !result.data.length
             ) {
-
                 return message.reply({
                     embeds: [
                         new EmbedBuilder()
                             .setColor("#000000")
                             .setTitle("❌ Manga Bulunamadı")
                             .setDescription(
-                                `**${query}** adına uygun bir manga bulunamadı.`
+                                `**${query}** için manga bulunamadı.`
                             )
                     ]
                 });
             }
 
-            const manga = result.data[0];
+            const manga =
+                result.data[0];
 
             const title =
                 manga.title ||
@@ -133,35 +104,11 @@ module.exports = {
                 manga.title_japanese ||
                 query;
 
-            const altTitles =
-                Array.isArray(manga.title_synonyms) &&
-                manga.title_synonyms.length > 0
-                    ? manga.title_synonyms
-                        .slice(0, 3)
-                        .join(", ")
-                    : "Yok";
-
-            const genres =
-                Array.isArray(manga.genres) &&
-                manga.genres.length > 0
-                    ? manga.genres
-                        .map(g => g.name)
-                        .join(", ")
-                    : "Belirtilmemiş";
-
-            const authors =
-                Array.isArray(manga.authors) &&
-                manga.authors.length > 0
-                    ? manga.authors
-                        .map(a => a.name)
-                        .join(", ")
-                    : "Bilinmiyor";
-
             const statusMap = {
-                "Finished": "Tamamlandı",
-                "Publishing": "Devam ediyor",
+                Finished: "Tamamlandı",
+                Publishing: "Devam ediyor",
                 "On Hiatus": "Ara verdi",
-                "Discontinued": "Yayın durdu",
+                Discontinued: "Yayın durdu",
                 "Currently publishing": "Devam ediyor"
             };
 
@@ -170,85 +117,90 @@ module.exports = {
                 manga.status ||
                 "Bilinmiyor";
 
-            let description =
+            const authors =
+                manga.authors?.length
+                    ? manga.authors
+                        .map(x => x.name)
+                        .join(", ")
+                    : "Bilinmiyor";
+
+            const genres =
+                manga.genres?.length
+                    ? manga.genres
+                        .map(x => x.name)
+                        .join(", ")
+                    : "Bilinmiyor";
+
+            const synopsis =
                 manga.synopsis ||
                 "Açıklama bulunamadı.";
 
-            if (description.length > 1000) {
-                description =
-                    description.slice(0, 997) + "...";
-            }
+            const description =
+                synopsis.length > 900
+                    ? synopsis.slice(0, 897) + "..."
+                    : synopsis;
 
             const chapters =
-                manga.chapters !== null &&
-                manga.chapters !== undefined
-                    ? String(manga.chapters)
-                    : "Bilinmiyor";
+                manga.chapters ??
+                "Bilinmiyor";
 
             const volumes =
-                manga.volumes !== null &&
-                manga.volumes !== undefined
-                    ? String(manga.volumes)
-                    : "Bilinmiyor";
+                manga.volumes ??
+                "Bilinmiyor";
 
             const score =
                 typeof manga.score === "number"
                     ? `${manga.score}/10`
                     : "Bilinmiyor";
 
-            const embed = new EmbedBuilder()
-                .setColor("#000000")
-                .setTitle(`📖 ${title}`)
-                .setDescription(description)
-                .addFields(
-                    {
-                        name: "📌 Durum",
-                        value: status,
-                        inline: true
-                    },
-                    {
-                        name: "📚 Bölüm",
-                        value: chapters,
-                        inline: true
-                    },
-                    {
-                        name: "📕 Cilt",
-                        value: volumes,
-                        inline: true
-                    },
-                    {
-                        name: "✍️ Yazar",
-                        value: authors,
-                        inline: true
-                    },
-                    {
-                        name: "🏷️ Türler",
-                        value: genres,
-                        inline: true
-                    },
-                    {
-                        name: "⭐ Puan",
-                        value: score,
-                        inline: true
-                    },
-                    {
-                        name: "🔤 Alternatif İsimler",
-                        value: altTitles
-                    }
-                )
-                .setFooter({
-                    text: "Bankai Manga Sistemi • Jikan"
-                })
-                .setTimestamp();
+            const embed =
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle(`📖 ${title}`)
+                    .setDescription(description)
+                    .addFields(
+                        {
+                            name: "📌 Durum",
+                            value: String(status),
+                            inline: true
+                        },
+                        {
+                            name: "📚 Bölüm",
+                            value: String(chapters),
+                            inline: true
+                        },
+                        {
+                            name: "📕 Cilt",
+                            value: String(volumes),
+                            inline: true
+                        },
+                        {
+                            name: "✍️ Yazar",
+                            value: authors,
+                            inline: true
+                        },
+                        {
+                            name: "🏷️ Türler",
+                            value: genres,
+                            inline: true
+                        },
+                        {
+                            name: "⭐ Puan",
+                            value: score,
+                            inline: true
+                        }
+                    )
+                    .setFooter({
+                        text: "Bankai Manga Sistemi • Jikan"
+                    })
+                    .setTimestamp();
 
-            if (
-                manga.images &&
-                manga.images.jpg &&
-                manga.images.jpg.large_image_url
-            ) {
-                embed.setThumbnail(
-                    manga.images.jpg.large_image_url
-                );
+            const image =
+                manga.images?.jpg?.large_image_url ||
+                manga.images?.jpg?.image_url;
+
+            if (image) {
+                embed.setThumbnail(image);
             }
 
             if (manga.url) {
@@ -260,33 +212,20 @@ module.exports = {
             });
 
         } catch (error) {
-
             console.error(
-                "❌ Manga API hatası:",
+                "❌ Manga/Jikan hatası:",
                 error
             );
-
-            let errorText =
-                "Manga bilgisi alınırken bir hata oluştu.";
-
-            if (
-                String(error.message)
-                    .includes("429")
-            ) {
-                errorText =
-                    "Jikan şu anda çok fazla istek aldığı için aramayı kabul etmedi.\n\n" +
-                    "⏳ Birkaç saniye bekleyip tekrar dene.";
-            }
 
             return message.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("#000000")
-                        .setTitle("❌ Manga Sistemi Hatası")
-                        .setDescription(errorText)
-                        .setFooter({
-                            text: "Bankai Manga Sistemi"
-                        })
+                        .setTitle("❌ Manga Arama Hatası")
+                        .setDescription(
+                            "Jikan'a bağlanırken bir hata oluştu.\n\n" +
+                            "Birkaç saniye sonra tekrar dene."
+                        )
                 ]
             });
         }

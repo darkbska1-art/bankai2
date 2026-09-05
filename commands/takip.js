@@ -1,11 +1,15 @@
 
 const fs = require("fs");
 const path = require("path");
+const { EmbedBuilder } = require("discord.js");
 
-const DATA_FILE = path.join(
+const takipFile = path.join(
     process.cwd(),
     "takipler.json"
 );
+
+const CHECK_INTERVAL = 10 * 60 * 1000; // 10 dakika
+const MANGADEX_API = "https://api.mangadex.org";
 
 // =====================================================
 // JSON
@@ -13,9 +17,9 @@ const DATA_FILE = path.join(
 
 function loadData() {
     try {
-        if (!fs.existsSync(DATA_FILE)) {
+        if (!fs.existsSync(takipFile)) {
             fs.writeFileSync(
-                DATA_FILE,
+                takipFile,
                 "{}",
                 "utf8"
             );
@@ -23,7 +27,7 @@ function loadData() {
 
         return JSON.parse(
             fs.readFileSync(
-                DATA_FILE,
+                takipFile,
                 "utf8"
             )
         );
@@ -40,7 +44,7 @@ function loadData() {
 
 function saveData(data) {
     fs.writeFileSync(
-        DATA_FILE,
+        takipFile,
         JSON.stringify(
             data,
             null,
@@ -51,200 +55,649 @@ function saveData(data) {
 }
 
 // =====================================================
-// KOMUT
+// BEKLEME
 // =====================================================
 
-module.exports = {
+function sleep(ms) {
+    return new Promise(
+        resolve => setTimeout(resolve, ms)
+    );
+}
 
-    name: "takip",
+// =====================================================
+// MANGADEX API
+// =====================================================
 
-    aliases: [
-        "follow"
-    ],
+async function mangaDexRequest(url) {
 
-    description:
-        "Anime ve manga takip etmeye başlarsın.",
-
-    async execute(message, args) {
-
-        if (!args.length) {
-            return message.reply(
-                "❌ Kullanım:\n\n" +
-                "`B!takip One Piece`\n" +
-                "`B!takip anime One Piece`\n" +
-                "`B!takip manga One Piece`"
-            );
-        }
-
-        let type = null;
-        let title = "";
-
-        // =================================================
-        // B!takip anime One Piece
-        // B!takip manga One Piece
-        // =================================================
-
-        if (
-            args[0].toLowerCase() === "anime" ||
-            args[0].toLowerCase() === "manga"
-        ) {
-
-            type =
-                args[0].toLowerCase();
-
-            title =
-                args
-                    .slice(1)
-                    .join(" ")
-                    .trim();
-
-        }
-
-        // =================================================
-        // B!takip One Piece
-        // =================================================
-
-        else {
-
-            title =
-                args
-                    .join(" ")
-                    .trim();
-        }
-
-        if (!title) {
-            return message.reply(
-                "❌ Takip etmek istediğin içeriğin adını yazmalısın."
-            );
-        }
-
-        const data = loadData();
-
-        const guildId =
-            message.guild.id;
-
-        const userId =
-            message.author.id;
-
-        if (!data[guildId]) {
-            data[guildId] = {};
-        }
-
-        if (!data[guildId][userId]) {
-            data[guildId][userId] = [];
-        }
-
-        const follows =
-            data[guildId][userId];
-
-        // =================================================
-        // TEK TÜR BELİRTİLDİYSE
-        // =================================================
-
-        if (type) {
-
-            const exists =
-                follows.find(
-                    x =>
-                        x.type === type &&
-                        x.title.toLowerCase() ===
-                            title.toLowerCase()
-                );
-
-            if (exists) {
-                return message.reply(
-                    `❌ **${exists.title}** zaten ${type} olarak takip listende.`
-                );
+    const response = await fetch(
+        url,
+        {
+            headers: {
+                "User-Agent":
+                    "Bankai-Discord-Bot/1.0"
             }
-
-            follows.push({
-                type,
-                title,
-                mediaId: null,
-                lastEpisode: null,
-                lastChapter: null,
-                lastChecked: 0
-            });
-
-            saveData(data);
-
-            const emoji =
-                type === "anime"
-                    ? "🎬"
-                    : "📖";
-
-            return message.reply(
-                `${emoji} **${title}** ${type} takip listene eklendi!`
-            );
         }
+    );
 
-        // =================================================
-        // TÜR BELİRTİLMEDİ
-        // B!takip One Piece
-        //
-        // HEM ANİME HEM MANGA
-        // =================================================
+    // Rate limit
+    if (response.status === 429) {
 
-        const animeExists =
-            follows.find(
-                x =>
-                    x.type === "anime" &&
-                    x.title.toLowerCase() ===
-                        title.toLowerCase()
-            );
+        const retryAfter =
+            Number(
+                response.headers.get(
+                    "Retry-After"
+                )
+            ) || 5;
 
-        const mangaExists =
-            follows.find(
-                x =>
-                    x.type === "manga" &&
-                    x.title.toLowerCase() ===
-                        title.toLowerCase()
-            );
+        console.log(
+            `⏳ MangaDex rate limit. ${retryAfter} saniye bekleniyor...`
+        );
 
-        let added = [];
+        await sleep(
+            retryAfter * 1000
+        );
 
-        if (!animeExists) {
+        return mangaDexRequest(url);
+    }
 
-            follows.push({
-                type: "anime",
-                title,
-                mediaId: null,
-                lastEpisode: null,
-                lastChapter: null,
-                lastChecked: 0
-            });
-
-            added.push("🎬 Anime");
-        }
-
-        if (!mangaExists) {
-
-            follows.push({
-                type: "manga",
-                title,
-                mediaId: null,
-                lastEpisode: null,
-                lastChapter: null,
-                lastChecked: 0
-            });
-
-            added.push("📖 Manga");
-        }
-
-        if (added.length === 0) {
-            return message.reply(
-                `❌ **${title}** zaten hem anime hem manga olarak takip listende.`
-            );
-        }
-
-        saveData(data);
-
-        return message.reply(
-            `✅ **${title}** takip listene eklendi!\n\n` +
-            added.join("\n") +
-            "\n\n" +
-            "Yeni anime bölümü veya manga chapter'ı çıktığında sana bildirim göndereceğim."
+    if (!response.ok) {
+        throw new Error(
+            `MangaDex API: ${response.status}`
         );
     }
+
+    return response.json();
+}
+
+// =====================================================
+// MANGA ARAMA
+// =====================================================
+
+async function searchManga(title) {
+
+    const url =
+        `${MANGADEX_API}/manga` +
+        `?title=${encodeURIComponent(title)}` +
+        `&limit=5` +
+        `&includes[]=cover_art`;
+
+    const result =
+        await mangaDexRequest(url);
+
+    const mangas =
+        result.data || [];
+
+    if (!mangas.length) {
+        return null;
+    }
+
+    /*
+     * Önce tam eşleşme arıyoruz.
+     * Bulamazsak ilk sonucu kullanıyoruz.
+     */
+
+    const normalized =
+        title
+            .toLowerCase()
+            .trim();
+
+    const exact =
+        mangas.find(manga => {
+
+            const titles =
+                manga.attributes?.title || {};
+
+            return Object.values(titles)
+                .some(value =>
+                    String(value)
+                        .toLowerCase()
+                        .trim() === normalized
+                );
+        });
+
+    return exact || mangas[0];
+}
+
+// =====================================================
+// MANGADEX MANGA ID
+// =====================================================
+
+async function getMangaId(follow) {
+
+    if (follow.mediaId) {
+        return follow.mediaId;
+    }
+
+    const manga =
+        await searchManga(
+            follow.title
+        );
+
+    if (!manga) {
+        return null;
+    }
+
+    return manga.id;
+}
+
+// =====================================================
+// SON TÜRKÇE BÖLÜM
+// =====================================================
+
+async function getLatestChapter(mangaId) {
+
+    const url =
+        `${MANGADEX_API}/chapter` +
+        `?manga[]=${encodeURIComponent(mangaId)}` +
+        `&limit=10` +
+        `&order[publishAt]=desc` +
+        `&translatedLanguage[]=tr` +
+        `&contentRating[]=safe` +
+        `&includes[]=manga`;
+
+    const result =
+        await mangaDexRequest(url);
+
+    const chapters =
+        result.data || [];
+
+    if (!chapters.length) {
+        return null;
+    }
+
+    return chapters[0];
+}
+
+// =====================================================
+// MANGA ADI
+// =====================================================
+
+function getMangaTitle(
+    chapter,
+    fallback
+) {
+
+    const mangaRelation =
+        chapter?.relationships?.find(
+            relation =>
+                relation.type === "manga"
+        );
+
+    const titles =
+        mangaRelation
+            ?.attributes
+            ?.title;
+
+    if (!titles) {
+        return fallback;
+    }
+
+    return (
+        titles.tr ||
+        titles.en ||
+        titles["ja-ro"] ||
+        Object.values(titles)[0] ||
+        fallback
+    );
+}
+
+// =====================================================
+// KAPAK
+// =====================================================
+
+async function getMangaInfo(mangaId) {
+
+    try {
+
+        const url =
+            `${MANGADEX_API}/manga/${mangaId}` +
+            `?includes[]=cover_art`;
+
+        const result =
+            await mangaDexRequest(url);
+
+        return result.data || null;
+
+    } catch {
+        return null;
+    }
+}
+
+// =====================================================
+// KAPAK URL
+// =====================================================
+
+function getCoverUrl(manga) {
+
+    if (!manga) {
+        return null;
+    }
+
+    const cover =
+        manga.relationships?.find(
+            relation =>
+                relation.type === "cover_art"
+        );
+
+    const fileName =
+        cover?.attributes?.fileName;
+
+    if (!fileName) {
+        return null;
+    }
+
+    return (
+        `https://uploads.mangadex.org/covers/` +
+        `${manga.id}/${fileName}.256.jpg`
+    );
+}
+
+// =====================================================
+// BÖLÜM NUMARASI
+// =====================================================
+
+function getChapterNumber(chapter) {
+
+    return (
+        chapter?.attributes?.chapter ||
+        "Özel"
+    );
+}
+
+// =====================================================
+// TAKİP BİLDİRİMİ
+// =====================================================
+
+async function sendNotification(
+    client,
+    userId,
+    mangaTitle,
+    chapter,
+    manga
+) {
+
+    const chapterNumber =
+        getChapterNumber(
+            chapter
+        );
+
+    const chapterId =
+        chapter.id;
+
+    const mangaUrl =
+        `https://mangadex.org/title/${manga?.id || ""}`;
+
+    const chapterUrl =
+        `https://mangadex.org/chapter/${chapterId}`;
+
+    const embed =
+        new EmbedBuilder()
+            .setColor("#000000")
+            .setTitle(
+                "📖 Manga Bölümü Yayında!"
+            )
+            .setDescription(
+                `**${mangaTitle}**\n\n` +
+                `Yeni bölüm: **${chapterNumber}**`
+            )
+            .addFields(
+                {
+                    name: "📖 Manga",
+                    value: mangaTitle,
+                    inline: true
+                },
+                {
+                    name: "📚 Bölüm",
+                    value: String(
+                        chapterNumber
+                    ),
+                    inline: true
+                },
+                {
+                    name: "🌐 Kaynak",
+                    value:
+                        `[MangaDex](${chapterUrl})`,
+                    inline: true
+                }
+            )
+            .setFooter({
+                text:
+                    "Bankai Manga Takip Sistemi"
+            })
+            .setTimestamp();
+
+    const cover =
+        getCoverUrl(manga);
+
+    if (cover) {
+        embed.setThumbnail(
+            cover
+        );
+    }
+
+    if (manga?.id) {
+        embed.setURL(
+            mangaUrl
+        );
+    }
+
+    try {
+
+        const user =
+            await client.users.fetch(
+                userId
+            );
+
+        await user.send({
+            embeds: [embed]
+        });
+
+        console.log(
+            `📖 ${mangaTitle} - Bölüm ${chapterNumber} bildirimi gönderildi.`
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.log(
+            `⚠️ ${userId} kullanıcısına manga DM bildirimi gönderilemedi.`
+        );
+
+        return false;
+    }
+}
+
+// =====================================================
+// TÜM TAKİPLERİ KONTROL
+// =====================================================
+
+async function checkAll(client) {
+
+    const data =
+        loadData();
+
+    let changed = false;
+
+    for (
+        const guildId of Object.keys(data)
+    ) {
+
+        const guildData =
+            data[guildId];
+
+        if (
+            !guildData ||
+            typeof guildData !== "object"
+        ) {
+            continue;
+        }
+
+        for (
+            const userId of Object.keys(
+                guildData
+            )
+        ) {
+
+            const follows =
+                guildData[userId];
+
+            if (
+                !Array.isArray(follows)
+            ) {
+                continue;
+            }
+
+            /*
+             * Sadece manga takiplerini kontrol ediyoruz.
+             * Anime kayıtlarına dokunmuyoruz.
+             */
+
+            const mangaFollows =
+                follows.filter(
+                    follow =>
+                        follow &&
+                        follow.type === "manga"
+                );
+
+            for (
+                const follow of mangaFollows
+            ) {
+
+                try {
+
+                    // =================================
+                    // MANGA ID BUL
+                    // =================================
+
+                    const mangaId =
+                        await getMangaId(
+                            follow
+                        );
+
+                    if (!mangaId) {
+
+                        console.log(
+                            `⚠️ Manga bulunamadı: ${follow.title}`
+                        );
+
+                        await sleep(1000);
+
+                        continue;
+                    }
+
+                    // Manga ID kaydet
+                    if (
+                        follow.mediaId !== mangaId
+                    ) {
+
+                        follow.mediaId =
+                            mangaId;
+
+                        changed = true;
+                    }
+
+                    // =================================
+                    // SON BÖLÜM
+                    // =================================
+
+                    const latestChapter =
+                        await getLatestChapter(
+                            mangaId
+                        );
+
+                    if (!latestChapter) {
+
+                        await sleep(1000);
+
+                        continue;
+                    }
+
+                    const chapterId =
+                        latestChapter.id;
+
+                    const chapterNumber =
+                        getChapterNumber(
+                            latestChapter
+                        );
+
+                    const manga =
+                        await getMangaInfo(
+                            mangaId
+                        );
+
+                    const mangaTitle =
+                        manga?.attributes?.title
+                            ?.tr ||
+                        manga?.attributes?.title
+                            ?.en ||
+                        follow.title;
+
+                    // =================================
+                    // İLK KONTROL
+                    // =================================
+
+                    /*
+                     * Kullanıcı yeni takip ettiğinde
+                     * mevcut bölümü kaydediyoruz.
+                     *
+                     * Böylece eski bölümü DM olarak
+                     * göndermiyoruz.
+                     */
+
+                    if (
+                        !follow.lastChapter &&
+                        !follow.lastChapterId
+                    ) {
+
+                        follow.lastChapter =
+                            chapterNumber;
+
+                        follow.lastChapterId =
+                            chapterId;
+
+                        follow.lastChecked =
+                            Date.now();
+
+                        changed = true;
+
+                        console.log(
+                            `📖 ${mangaTitle} ilk kez senkronize edildi: Bölüm ${chapterNumber}`
+                        );
+
+                        await sleep(1000);
+
+                        continue;
+                    }
+
+                    // =================================
+                    // AYNI BÖLÜM
+                    // =================================
+
+                    if (
+                        follow.lastChapterId ===
+                        chapterId
+                    ) {
+
+                        follow.lastChecked =
+                            Date.now();
+
+                        changed = true;
+
+                        await sleep(1000);
+
+                        continue;
+                    }
+
+                    // =================================
+                    // YENİ BÖLÜM
+                    // =================================
+
+                    const oldChapter =
+                        follow.lastChapter;
+
+                    follow.lastChapter =
+                        chapterNumber;
+
+                    follow.lastChapterId =
+                        chapterId;
+
+                    follow.lastChecked =
+                        Date.now();
+
+                    changed = true;
+
+                    await sendNotification(
+                        client,
+                        userId,
+                        mangaTitle,
+                        latestChapter,
+                        manga
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        `❌ ${follow.title} kontrol edilemedi:`,
+                        error.message
+                    );
+
+                    await sleep(
+                        2000
+                    );
+                }
+
+                /*
+                 * MangaDex'e çok hızlı istek
+                 * atmamak için bekleme.
+                 */
+
+                await sleep(
+                    1200
+                );
+            }
+        }
+    }
+
+    if (changed) {
+        saveData(data);
+    }
+}
+
+// =====================================================
+// BAŞLAT
+// =====================================================
+
+module.exports = function startMangaTracker(
+    client
+) {
+
+    console.log(
+        "📖 Manga takip sistemi başlatıldı."
+    );
+
+    /*
+     * Bot açıldıktan 15 saniye sonra
+     * ilk kontrol.
+     */
+
+    setTimeout(
+        () => {
+
+            checkAll(client)
+                .catch(error => {
+
+                    console.error(
+                        "❌ Manga takip kontrol hatası:",
+                        error
+                    );
+
+                });
+
+        },
+        15000
+    );
+
+    /*
+     * Her 10 dakikada bir kontrol.
+     */
+
+    setInterval(
+        () => {
+
+            checkAll(client)
+                .catch(error => {
+
+                    console.error(
+                        "❌ Manga takip kontrol hatası:",
+                        error
+                    );
+
+                });
+
+        },
+        CHECK_INTERVAL
+    );
 };
 

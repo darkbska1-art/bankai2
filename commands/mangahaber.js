@@ -7,43 +7,79 @@ const {
 const fs = require("fs");
 const path = require("path");
 
-const file = path.join(process.cwd(), "mangahaber.json");
+const DATA_FILE = path.join(
+    process.cwd(),
+    "mangahaber.json"
+);
 
 function loadData() {
-    if (!fs.existsSync(file)) {
-        fs.writeFileSync(file, "{}", "utf8");
-    }
-
     try {
-        return JSON.parse(fs.readFileSync(file, "utf8"));
-    } catch {
+        if (!fs.existsSync(DATA_FILE)) {
+            fs.writeFileSync(
+                DATA_FILE,
+                "{}",
+                "utf8"
+            );
+        }
+
+        return JSON.parse(
+            fs.readFileSync(
+                DATA_FILE,
+                "utf8"
+            )
+        );
+
+    } catch (error) {
+        console.error(
+            "❌ mangahaber.json okunamadı:",
+            error
+        );
+
         return {};
     }
 }
 
 function saveData(data) {
     fs.writeFileSync(
-        file,
-        JSON.stringify(data, null, 2),
+        DATA_FILE,
+        JSON.stringify(
+            data,
+            null,
+            2
+        ),
         "utf8"
     );
 }
 
 module.exports = {
     name: "mangahaber",
-    aliases: ["mangahaberkanal"],
+
+    aliases: [
+        "mangahaberkanal"
+    ],
+
+    description:
+        "Manga haber kanalını ayarlar.",
 
     async execute(message, args) {
-        if (!message.guild) return;
+
+        if (!message.guild) {
+            return;
+        }
 
         const data = loadData();
-        const guildId = message.guild.id;
 
+        const guildId =
+            message.guild.id;
+
+        // ==========================================
         // KAPAT
+        // ==========================================
+
         if (
-            args[0]?.toLowerCase() === "kapat" ||
             args[0]?.toLowerCase() === "kapat"
         ) {
+
             if (
                 !message.member.permissions.has(
                     PermissionFlagsBits.ManageGuild
@@ -68,13 +104,14 @@ module.exports = {
                             .setColor("#000000")
                             .setTitle("📖 Manga Haber")
                             .setDescription(
-                                "Bu sunucuda manga haber sistemi zaten ayarlı değil."
+                                "Bu sunucuda manga haber sistemi zaten kapalı."
                             )
                     ]
                 });
             }
 
             delete data[guildId];
+
             saveData(data);
 
             return message.reply({
@@ -83,15 +120,20 @@ module.exports = {
                         .setColor("#000000")
                         .setTitle("✅ Manga Haber Kapatıldı")
                         .setDescription(
-                            "Bu sunucunun manga haber kanalı kaldırıldı."
+                            "Bu sunucuda otomatik manga haberleri artık gönderilmeyecek."
                         )
                 ]
             });
         }
 
-        // MEVCUT KANALI GÖSTER
+        // ==========================================
+        // AYARI GÖSTER
+        // ==========================================
+
         if (!args.length) {
-            const channelId = data[guildId]?.channelId;
+
+            const channelId =
+                data[guildId]?.channelId;
 
             if (!channelId) {
                 return message.reply({
@@ -101,14 +143,17 @@ module.exports = {
                             .setTitle("📖 Manga Haber Sistemi")
                             .setDescription(
                                 "Bu sunucuda manga haber kanalı ayarlanmamış.\n\n" +
-                                "Kanal ayarlamak için:\n" +
-                                "`B!mangahaber #kanal`"
+                                "**Kanal ayarlamak için:**\n" +
+                                "`B!mangahaber #manga-haber`"
                             )
                     ]
                 });
             }
 
-            const channel = message.guild.channels.cache.get(channelId);
+            const channel =
+                message.guild.channels.cache.get(
+                    channelId
+                );
 
             return message.reply({
                 embeds: [
@@ -117,12 +162,16 @@ module.exports = {
                         .setTitle("📖 Manga Haber Kanalı")
                         .setDescription(
                             channel
-                                ? `Manga haberleri şu kanala gönderiliyor: ${channel}`
+                                ? `Manga haberleri ${channel} kanalına gönderiliyor.`
                                 : "Ayarlanan kanal artık bulunamıyor."
                         )
                 ]
             });
         }
+
+        // ==========================================
+        // YETKİ
+        // ==========================================
 
         if (
             !message.member.permissions.has(
@@ -141,6 +190,10 @@ module.exports = {
             });
         }
 
+        // ==========================================
+        // KANAL
+        // ==========================================
+
         const channel =
             message.mentions.channels.first();
 
@@ -152,7 +205,7 @@ module.exports = {
                         .setTitle("❌ Kanal Belirtilmedi")
                         .setDescription(
                             "Bir kanal etiketlemelisin.\n\n" +
-                            "Örnek:\n" +
+                            "**Örnek:**\n" +
                             "`B!mangahaber #manga-haber`"
                         )
                 ]
@@ -174,19 +227,22 @@ module.exports = {
                     .setDescription(
                         `Yeni manga bölümleri artık ${channel} kanalına gönderilecek.`
                     )
-                    .addFields({
-                        name: "📖 Sistem",
-                        value: "Otomatik Manga Bölüm Bildirimleri",
-                        inline: true
-                    })
-                    .addFields({
-                        name: "📢 Kanal",
-                        value: `${channel}`,
-                        inline: true
-                    })
+                    .addFields(
+                        {
+                            name: "📖 Sistem",
+                            value: "Otomatik Manga Bölüm Haberleri",
+                            inline: true
+                        },
+                        {
+                            name: "📢 Kanal",
+                            value: `${channel}`,
+                            inline: true
+                        }
+                    )
                     .setFooter({
                         text: "Bankai Manga Haber Sistemi"
                     })
+                    .setTimestamp()
             ]
         });
     }

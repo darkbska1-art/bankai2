@@ -16,11 +16,14 @@ module.exports = {
     async execute(message, args) {
         const userId = message.author.id;
 
-        if (games.has(userId)) {
-            return message.reply(
-                "❌ Zaten devam eden bir tahmin oyunun var!"
-            );
-        }
+       
+if (game) {
+    return message.reply(
+        "❌ Zaten devam eden bir tahmin oyunun var!"
+    );
+}
+
+
 
         const number =
             Math.floor(Math.random() * 100) + 1;

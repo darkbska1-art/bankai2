@@ -87,7 +87,7 @@ data: new SlashCommandBuilder()
                 ]
             },
 
-            ayarlanabilir: {
+            Ayarlanabilir Komutlar: {
                 name: "Ayarlanabilir Komutlar",
                 emoji: "📝",
                 commands: [

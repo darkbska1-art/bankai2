@@ -47,6 +47,7 @@ const client = new Client({
     ]
 });
 
+global.client = client;
 
 // =====================================================
 // 📦 KOMUT SİSTEMİ

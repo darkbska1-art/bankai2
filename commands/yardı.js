@@ -117,7 +117,7 @@ data: new SlashCommandBuilder()
                     ["avatar", "Avatar görüntüler."],
                     ["banner", "Banner görüntüler."],
                     ["say", "botu konuşturursun."],
-                    ["ship", "iki kullanıcı arasındaki uyumu gösterir."]
+                    ["ship", "iki kullanıcı arasındaki uyumu gösterir."],
                     ["adamasmaca", "adam asmaca oyunu oynarsınız."],
                     ["sayıtahmin", "sayı tahmin oyunu oynarsınız."],
                     ["yazıtura", "yazı tura atarsınız."],

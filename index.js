@@ -528,6 +528,18 @@ try {
 }
 
 
+// 📖 Manga takip sistemi
+try {
+    const mangaTracker = require("./events/mangatakip.js");
+    mangaTracker(client);
+
+    console.log("📖 Manga takip sistemi yüklendi!");
+} catch (error) {
+    console.error("❌ Manga takip sistemi yüklenemedi:");
+    console.error(error);
+}
+
+
 
 
 // =====================================================

@@ -80,7 +80,15 @@ data: new SlashCommandBuilder()
                     ["unlock", "Kanalın kilidini açar."],
                     ["unban", "Üyenin yasağını kaldırır."],
                     ["slowmode", "kanalın yavaş modunu ayarlar."],
-                    ["poll", "Anket başlatır."]
+                    ["poll", "Anket başlatır."],
+                    ["çekiliş", "Çekiliş başlatır."],
+                    ["reroll" , "Çekilişi yeniden çeker."],
+                    ["seri", "Seri sayısını gösterir."],
+                    ["seriler", "Global seri sıralamasını gösterir."],
+                    ["rolver/rolal", "Üyeye rol verir veya alır."],
+                    ["sürelirol", "Üyeye süreli rol verir."],
+                    ["hatırlatıcı", "Hatırlatıcı ayarlar."],
+
 
 
 
@@ -96,6 +104,8 @@ data: new SlashCommandBuilder()
                     ["boostkanal", "boost kanalını ayarlar."],
                     ["boostkapat", "boost mesajını devre dışı bırakır."],
                     ["seviyesistem", "seviye sistemini ayarlar."],
+                    ["otorol", "B!otorol @üye @BotRol"],
+                    ["otorolkapat", "Otorol sistemini kapatır."],
                 ]
             },
 
@@ -108,6 +118,15 @@ data: new SlashCommandBuilder()
                     ["banner", "Banner görüntüler."],
                     ["say", "botu konuşturursun."],
                     ["ship", "iki kullanıcı arasındaki uyumu gösterir."]
+                    ["adamasmaca", "adam asmaca oyunu oynarsınız."],
+                    ["sayıtahmin", "sayı tahmin oyunu oynarsınız."],
+                    ["yazıtura", "yazı tura atarsınız."],
+                    ["zar", "zar atarsınız."],
+                    ["kader", "kaderinizi öğrenirsiniz."],
+                    ["8ball", "sihirli 8 topu ile sorularınıza cevap alırsınız."],
+                    ["hızlıcevap", "hızlı cevap oyunu oynarsınız."],
+
+
             
                     
                 ]
@@ -119,7 +138,8 @@ data: new SlashCommandBuilder()
                 commands: [
                     ["anime", "Anime arar."],
                     ["animehaber", "Anime haber kanalını ayarlarsınız ."],
-                    ["animehbaerkapat", "Anime haberi kapatır."]
+                    ["animehbaerkapat", "Anime haberi kapatır."],
+                    ["randomanime", "Rastgele anime gösterir."],
                 ]
             },
 
@@ -130,6 +150,8 @@ data: new SlashCommandBuilder()
                     ["ping", "Botun gecikmesini gösterir."],
                     ["sunucu", "Sunucu bilgilerini gösterir."],
                     ["istatistik", "Bot istatistiklerini gösterir."],
+                    ["avatar", "Kullanıcının avatarını gösterir."],
+                    ["banner", "Kullanıcının bannerını gösterir."],
                     
                 ]
             }

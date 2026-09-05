@@ -310,6 +310,13 @@ client.once("clientReady", async () => {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
 
+    // Süreli roller
+    sureliRol.checkExpiredRoles(client);
+
+    setInterval(() => {
+        sureliRol.checkExpiredRoles(client);
+    }, 10 * 1000);
+
 
 try {
     const boostEvent = require("./events/boost");

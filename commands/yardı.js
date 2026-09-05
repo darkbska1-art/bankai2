@@ -87,7 +87,7 @@ data: new SlashCommandBuilder()
                 ]
             },
 
-            Ayarlanabilir Komutlar: {
+            Ayarlanabilir: {
                 name: "Ayarlanabilir Komutlar",
                 emoji: "📝",
                 commands: [
@@ -263,7 +263,8 @@ data: new SlashCommandBuilder()
                         "📝 Ayarlanabilir komutlar\n" +
                         "🎉 Eğlence\n" +
                         "🎌 Anime\n" +
-                        "⚙️ Sistem",
+                        "⚙️ Sistem\n" +
+                        "📨 Diğer yardım komudu B!davet yardım\n",
                     inline: false
                 });
 
@@ -354,12 +355,12 @@ data: new SlashCommandBuilder()
                         .setValue("moderasyon"),
 
                     new StringSelectMenuOptionBuilder()
-                        .setLabel("Ayarlanabilir")
+                        .setLabel("Ayarlanabilir ")
                         .setDescription(
                             "Sistem komutları"
                         )
                         .setEmoji("📝")
-                        .setValue("Ayarlanabilir komutlar"),
+                        .setValue("Ayarlanabilir "),
 
                     new StringSelectMenuOptionBuilder()
                         .setLabel("Eğlence")

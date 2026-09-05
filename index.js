@@ -152,11 +152,7 @@ client.on("messageCreate", async message => {
             `📥 Komut: ${prefix}${commandName} | ${message.author.tag}`
         );
 
-        // =====================================================
-        // 💤 BANKAI AFK SİSTEMİ
-        // =====================================================
-
-        await afkSystem.handleMessage(message);
+ 
         // =====================================================
         // 🔥 GLOBAL SERİ
         // =====================================================
@@ -306,7 +302,7 @@ client.once("clientReady", async () => {
         `📦 ${client.commands.size} komut/alias yüklendi.`
     );
 
-    client.user.setActivity("sende hergün komut kullan ve serilerini artır!", {
+    client.user.setActivity("B!seri Globalde farkını göster!", {
         type: 2
     });
 

@@ -1,6 +1,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { EmbedBuilder } = require("discord.js");
 
 const DATA_FILE = path.join(process.cwd(), "davetler.json");
 
@@ -404,156 +405,117 @@ async function handleMemberAdd(member) {
 
 
 async function handleMemberRemove(member) {
-
     try {
-
         const guild = member.guild;
 
-        const guildData =
-            getGuildData(guild.id);
+        const guildData = getGuildData(guild.id);
 
-        const inviteInfo =
-            guildData.members[member.id];
+        // Üyenin hangi davetle geldiğini bul
+        const inviteInfo = guildData.members[member.id];
 
-        if (!inviteInfo) {
-            return;
-        }
+        let inviter = null;
 
-        const inviter =
-            guildData.users[
-                inviteInfo.inviterId
-            ];
+        // Eğer davet bilgisi kayıtlıysa sayaçları güncelle
+        if (inviteInfo) {
+            inviter = guildData.users[inviteInfo.inviterId];
 
-        // =================================================
-        // 📉 DAVET SAYISINI GÜNCELLE
-        // =================================================
+            if (inviter) {
+                if (inviter.valid > 0) {
+                    inviter.valid--;
+                }
 
-        if (inviter) {
-
-            if (inviter.valid > 0) {
-                inviter.valid--;
+                inviter.left++;
             }
 
-            inviter.left++;
+            delete guildData.members[member.id];
+
+            saveData();
         }
 
-        delete guildData.members[member.id];
+        console.log(`📤 ${member.user.tag} çıktı.`);
 
-        saveData();
-
-        console.log(
-            `📤 ${member.user.tag} çıktı.`
-        );
-
-        // =================================================
-        // 📢 BİLDİRİM KANALI
-        // =================================================
-
+        // Bildirim kanalı ayarlı değilse sadece logla
         if (!guildData.channelId) {
-
             console.log(
                 `⚠️ ${guild.name}: Davet bildirim kanalı ayarlanmamış.`
             );
-
             return;
         }
 
-        const channel =
-            guild.channels.cache.get(
-                guildData.channelId
-            );
+        const channel = guild.channels.cache.get(
+            guildData.channelId
+        );
 
         if (!channel) {
-
             console.log(
                 `❌ ${guild.name}: Davet bildirim kanalı bulunamadı.`
             );
-
             return;
         }
 
         if (!channel.isTextBased()) {
-
             console.log(
                 `❌ ${guild.name}: Bildirim kanalı mesaj gönderilebilir değil.`
             );
-
             return;
         }
 
+        const inviterName = inviteInfo
+            ? `<@${inviteInfo.inviterId}>`
+            : "Bilinmiyor";
 
+        const currentValid = inviter?.valid || 0;
+        const currentLeft = inviter?.left || 0;
 
-        const inviterName =
-            inviter
-                ? `<@${inviteInfo.inviterId}>`
-                : "Bilinmiyor";
+        await channel.send({
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("Red")
+                    .setTitle("📤 Üye Ayrıldı")
+                    .setDescription(
+                        `**${member.user.tag}** sunucudan ayrıldı.`
+                    )
+                    .addFields(
+                        {
+                            name: "👤 Ayrılan Üye",
+                            value: `${member.user}`,
+                            inline: true
+                        },
+                        {
+                            name: "📨 Davet Eden",
+                            value: inviterName,
+                            inline: true
+                        },
+                        {
+                            name: "📊 Geçerli Davet",
+                            value: `**${currentValid}**`,
+                            inline: true
+                        },
+                        {
+                            name: "📤 Ayrılan",
+                            value: `**${currentLeft}**`,
+                            inline: true
+                        }
+                    )
+                    .setFooter({
+                        text: `${guild.name} • Davet Sistemi`
+                    })
+                    .setTimestamp()
+            ]
+        });
 
-        const currentValid =
-            inviter?.valid || 0;
-
-        const currentLeft =
-            inviter?.left || 0;
-
-        try {
-
-            await channel.send({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor("Red")
-                        .setTitle("📤 Üye Ayrıldı")
-                        .setDescription(
-                            `**${member.user.tag}** sunucudan ayrıldı.`
-                        )
-                        .addFields(
-                            {
-                                name: "👤 Ayrılan Üye",
-                                value: `${member.user}`,
-                                inline: true
-                            },
-                            {
-                                name: "📨 Davet Eden",
-                                value: inviterName,
-                                inline: true
-                            },
-                            {
-                                name: "📊 Geçerli Davet",
-                                value: `**${currentValid}**`,
-                                inline: true
-                            },
-                            {
-                                name: "📤 Ayrılan",
-                                value: `**${currentLeft}**`,
-                                inline: true
-                            }
-                        )
-                        .setFooter({
-                            text:
-                                `${guild.name} • Davet Sistemi`
-                        })
-                        .setTimestamp()
-                ]
-            });
-
-            console.log(
-                `✅ ${member.user.tag} çıkış mesajı gönderildi.`
-            );
-
-        } catch (error) {
-
-            console.error(
-                `❌ Çıkış mesajı gönderilemedi:`,
-                error.message
-            );
-        }
+        console.log(
+            `✅ ${member.user.tag} için çıkış mesajı gönderildi.`
+        );
 
     } catch (error) {
-
         console.error(
             "❌ Davet çıkış hatası:",
             error
         );
     }
 }
+
 
 
 

@@ -151,6 +151,11 @@ client.on("messageCreate", async message => {
         console.log(
             `📥 Komut: ${prefix}${commandName} | ${message.author.tag}`
         );
+        // =====================================================
+// 💤 AFK SİSTEMİ
+// =====================================================
+
+await afkSystem.handleMessage(message);
 // =====================================================
 // 💤 GELİŞMİŞ AFK SİSTEMİ
 // =====================================================

@@ -22,9 +22,7 @@ async function jikanRequest(url, retries = 3) {
             }
 
             if (!response.ok) {
-                throw new Error(
-                    `Jikan API ${response.status}`
-                );
+                throw new Error(`Jikan API ${response.status}`);
             }
 
             return await response.json();
@@ -42,23 +40,23 @@ async function jikanRequest(url, retries = 3) {
 module.exports = {
     name: "manga",
 
+    // mangaara BURADAN KALDIRILDI
     aliases: [
-        "mangaara",
         "mangabilgi"
     ],
 
-    description:
-        "Jikan üzerinden manga arar.",
+    description: "Jikan üzerinden manga bilgisi gösterir.",
 
     async execute(message, args) {
+
         if (!args.length) {
             return message.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("#000000")
-                        .setTitle("📖 Manga Arama")
+                        .setTitle("📖 Manga Bilgisi")
                         .setDescription(
-                            "Manga aramak için:\n\n" +
+                            "Bir manga adı yazmalısın.\n\n" +
                             "`B!manga One Piece`\n" +
                             "`B!manga Naruto`\n" +
                             "`B!manga Berserk`"
@@ -70,19 +68,15 @@ module.exports = {
             });
         }
 
-        const query =
-            args.join(" ").trim();
+        const query = args.join(" ").trim();
 
         try {
-            const result =
-                await jikanRequest(
-                    `${API}/manga?q=${encodeURIComponent(query)}&limit=5`
-                );
 
-            if (
-                !result?.data ||
-                !result.data.length
-            ) {
+            const result = await jikanRequest(
+                `${API}/manga?q=${encodeURIComponent(query)}&limit=5`
+            );
+
+            if (!result?.data || !result.data.length) {
                 return message.reply({
                     embeds: [
                         new EmbedBuilder()
@@ -95,8 +89,7 @@ module.exports = {
                 });
             }
 
-            const manga =
-                result.data[0];
+            const manga = result.data[0];
 
             const title =
                 manga.title ||
@@ -141,12 +134,10 @@ module.exports = {
                     : synopsis;
 
             const chapters =
-                manga.chapters ??
-                "Bilinmiyor";
+                manga.chapters ?? "Bilinmiyor";
 
             const volumes =
-                manga.volumes ??
-                "Bilinmiyor";
+                manga.volumes ?? "Bilinmiyor";
 
             const score =
                 typeof manga.score === "number"
@@ -212,6 +203,7 @@ module.exports = {
             });
 
         } catch (error) {
+
             console.error(
                 "❌ Manga/Jikan hatası:",
                 error

@@ -3,91 +3,49 @@ const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 
-const takipFile = path.join(
+const FILE = path.join(
     process.cwd(),
     "takipler.json"
 );
 
+const API = "https://api.jikan.moe/v4";
 const CHECK_INTERVAL = 10 * 60 * 1000;
-const JIKAN_API = "https://api.jikan.moe/v4";
 
-let checking = false;
+let running = false;
 
-// =====================================================
-// JSON
-// =====================================================
+function sleep(ms) {
+    return new Promise(resolve =>
+        setTimeout(resolve, ms)
+    );
+}
 
 function loadData() {
+    if (!fs.existsSync(FILE)) {
+        fs.writeFileSync(FILE, "{}", "utf8");
+    }
+
     try {
-        if (!fs.existsSync(takipFile)) {
-            fs.writeFileSync(
-                takipFile,
-                "{}",
-                "utf8"
-            );
-        }
-
         return JSON.parse(
-            fs.readFileSync(
-                takipFile,
-                "utf8"
-            )
+            fs.readFileSync(FILE, "utf8")
         );
-    } catch (error) {
-        console.error(
-            "❌ takipler.json okunamadı:",
-            error
-        );
-
+    } catch {
         return {};
     }
 }
 
 function saveData(data) {
-    try {
-        fs.writeFileSync(
-            takipFile,
-            JSON.stringify(
-                data,
-                null,
-                2
-            ),
-            "utf8"
-        );
-    } catch (error) {
-        console.error(
-            "❌ takipler.json kaydedilemedi:",
-            error
-        );
-    }
-}
-
-// =====================================================
-// BEKLEME
-// =====================================================
-
-function sleep(ms) {
-    return new Promise(
-        resolve => setTimeout(resolve, ms)
+    fs.writeFileSync(
+        FILE,
+        JSON.stringify(data, null, 2),
+        "utf8"
     );
 }
 
-// =====================================================
-// JIKAN API
-// =====================================================
-
-async function jikanRequest(
-    endpoint,
-    retries = 3
-) {
-    for (
-        let attempt = 1;
-        attempt <= retries;
-        attempt++
-    ) {
+async function request(endpoint) {
+    for (let i = 0; i < 4; i++) {
         try {
             const response = await fetch(
-                `${JIKAN_API}${endpoint}`,
+                `${API}${endpoint}`,
                 {
                     headers: {
                         "User-Agent":
@@ -96,140 +54,72 @@ async function jikanRequest(
                 }
             );
 
-            // Jikan rate limit
             if (response.status === 429) {
-                console.log(
-                    `⏳ Jikan rate limit. ${attempt}. deneme...`
-                );
-
-                await sleep(
-                    3000
-                );
-
+                await sleep(4000);
                 continue;
             }
 
             if (!response.ok) {
                 throw new Error(
-                    `Jikan API: ${response.status}`
+                    `Jikan ${response.status}`
                 );
             }
 
             return await response.json();
 
         } catch (error) {
-            if (
-                attempt >= retries
-            ) {
+            if (i === 3) {
                 throw error;
             }
 
-            await sleep(
-                2000
-            );
+            await sleep(2500);
         }
     }
 
     return null;
 }
 
-// =====================================================
-// ANIME ARAMA
-// =====================================================
+async function findAnime(title) {
+    const result = await request(
+        `/anime?q=${encodeURIComponent(title)}&limit=10`
+    );
 
-async function searchAnime(
-    title
-) {
-    const result =
-        await jikanRequest(
-            `/anime?q=${encodeURIComponent(title)}&limit=10`
-        );
+    const list = result?.data || [];
 
-    const animeList =
-        result?.data || [];
-
-    if (!animeList.length) {
+    if (!list.length) {
         return null;
     }
 
-    const normalized =
-        title
-            .toLowerCase()
-            .trim();
+    const wanted =
+        title.toLocaleLowerCase("tr-TR").trim();
 
-    // Önce tam isim eşleşmesi
-    const exact =
-        animeList.find(
-            anime => {
+    const exact = list.find(anime => {
+        const titles = [
+            anime.title,
+            anime.title_english,
+            anime.title_japanese
+        ].filter(Boolean);
 
-                const titles = [
-                    anime.title,
-                    anime.title_english,
-                    anime.title_japanese
-                ].filter(Boolean);
-
-                return titles.some(
-                    value =>
-                        String(value)
-                            .toLowerCase()
-                            .trim() === normalized
-                );
-            }
+        return titles.some(
+            value =>
+                String(value)
+                    .toLocaleLowerCase("tr-TR")
+                    .trim() === wanted
         );
+    });
 
-    return exact || animeList[0];
+    return exact || list[0];
 }
 
-// =====================================================
-// ANIME BİLGİSİ
-// =====================================================
-
-async function getAnimeInfo(
-    animeId
-) {
-    const result =
-        await jikanRequest(
-            `/anime/${animeId}/full`
-        );
+async function getAnime(id) {
+    const result = await request(
+        `/anime/${id}/full`
+    );
 
     return result?.data || null;
 }
 
-// =====================================================
-// BÖLÜM NUMARASI
-// =====================================================
-
-function getEpisode(
-    anime
-) {
-    if (
-        anime?.episodes === null ||
-        anime?.episodes === undefined
-    ) {
-        return null;
-    }
-
-    const episode =
-        Number(anime.episodes);
-
-    if (
-        !Number.isFinite(episode) ||
-        episode <= 0
-    ) {
-        return null;
-    }
-
-    return episode;
-}
-
-// =====================================================
-// ANIME ADI
-// =====================================================
-
-function getAnimeTitle(
-    anime,
-    fallback
-) {
+function getTitle(anime, fallback) {
     return (
         anime?.title ||
         anime?.title_english ||
@@ -238,57 +128,25 @@ function getAnimeTitle(
     );
 }
 
-// =====================================================
-// DURUM
-// =====================================================
-
-function getAnimeStatus(
-    anime
-) {
-    const statusMap = {
-        "Currently Airing":
-            "Yayınlanıyor",
-
-        "Finished Airing":
-            "Tamamlandı",
-
-        "Not yet aired":
-            "Henüz yayınlanmadı"
-    };
-
-    return (
-        statusMap[anime?.status] ||
-        anime?.status ||
-        "Bilinmiyor"
-    );
-}
-
-// =====================================================
-// BİLDİRİM
-// =====================================================
-
-async function sendNotification(
+async function sendDM(
     client,
     userId,
     anime,
-    oldEpisode,
-    newEpisode
+    episode
 ) {
-    const title =
-        getAnimeTitle(
-            anime,
-            "Bilinmeyen Anime"
-        );
+    try {
+        const user =
+            await client.users.fetch(userId);
 
-    const embed =
-        new EmbedBuilder()
+        const title =
+            getTitle(anime, "Bilinmeyen Anime");
+
+        const embed = new EmbedBuilder()
             .setColor("#000000")
-            .setTitle(
-                "🎬 Anime Bölümü Yayında!"
-            )
+            .setTitle("🎬 Anime Bölümü Yayında!")
             .setDescription(
                 `**${title}**\n\n` +
-                `Yeni bölüm: **${newEpisode}**`
+                `Yeni bölüm: **${episode}**`
             )
             .addFields(
                 {
@@ -297,173 +155,102 @@ async function sendNotification(
                     inline: true
                 },
                 {
-                    name: "📺 Yeni Bölüm",
-                    value: String(
-                        newEpisode
-                    ),
-                    inline: true
-                },
-                {
-                    name: "📺 Önceki Bölüm",
-                    value: String(
-                        oldEpisode
-                    ),
-                    inline: true
-                },
-                {
-                    name: "📌 Durum",
-                    value:
-                        getAnimeStatus(
-                            anime
-                        ),
+                    name: "📺 Bölüm",
+                    value: String(episode),
                     inline: true
                 },
                 {
                     name: "🌐 Kaynak",
-                    value:
-                        anime?.url
-                            ? `[MyAnimeList](${anime.url})`
-                            : "MyAnimeList",
+                    value: anime.url
+                        ? `[MyAnimeList](${anime.url})`
+                        : "MyAnimeList",
                     inline: true
                 }
             )
             .setFooter({
-                text:
-                    "Bankai Anime Takip Sistemi"
+                text: "Bankai Anime Takip Sistemi"
             })
             .setTimestamp();
 
-    const image =
-        anime?.images?.jpg
-            ?.large_image_url ||
-        anime?.images?.jpg
-            ?.image_url;
+        const image =
+            anime.images?.jpg?.large_image_url ||
+            anime.images?.jpg?.image_url;
 
-    if (image) {
-        embed.setThumbnail(
-            image
-        );
-    }
+        if (image) {
+            embed.setThumbnail(image);
+        }
 
-    if (anime?.url) {
-        embed.setURL(
-            anime.url
-        );
-    }
-
-    try {
-        const user =
-            await client.users.fetch(
-                userId
-            );
+        if (anime.url) {
+            embed.setURL(anime.url);
+        }
 
         await user.send({
             embeds: [embed]
         });
 
-        console.log(
-            `🎬 ${title} → Bölüm ${newEpisode} bildirildi.`
-        );
-
         return true;
 
     } catch (error) {
         console.log(
-            `⚠️ ${userId} kullanıcısına anime DM gönderilemedi.`
+            `⚠️ Anime DM gönderilemedi (${userId}):`,
+            error.message
         );
 
         return false;
     }
 }
 
-// =====================================================
-// TÜM TAKİPLERİ KONTROL
-// =====================================================
-
-async function checkAll(
-    client
-) {
-    if (checking) {
-        console.log(
-            "⏳ Anime kontrolü zaten devam ediyor."
-        );
-
+async function checkAll(client) {
+    if (running) {
         return;
     }
 
-    checking = true;
+    running = true;
 
     try {
-        const data =
-            loadData();
-
+        const data = loadData();
         let changed = false;
 
-        // =============================================
-        // SUNUCULAR
-        // =============================================
+        for (const guildId of Object.keys(data)) {
+            const users = data[guildId];
 
-        for (
-            const guildId of Object.keys(data)
-        ) {
-            const guildData =
-                data[guildId];
-
-            if (
-                !guildData ||
-                typeof guildData !== "object"
-            ) {
+            if (!users || typeof users !== "object") {
                 continue;
             }
 
-            // =========================================
-            // KULLANICILAR
-            // =========================================
+            for (const userId of Object.keys(users)) {
+                const follows = users[userId];
 
-            for (
-                const userId of Object.keys(
-                    guildData
-                )
-            ) {
-                const follows =
-                    guildData[userId];
-
-                if (
-                    !Array.isArray(follows)
-                ) {
+                if (!Array.isArray(follows)) {
                     continue;
                 }
 
-                // Sadece anime takipleri
-                const animeFollows =
-                    follows.filter(
-                        follow =>
-                            follow &&
-                            follow.type === "anime"
-                    );
+                for (const follow of follows) {
+                    if (
+                        !follow ||
+                        follow.type !== "anime"
+                    ) {
+                        continue;
+                    }
 
-                // =====================================
-                // ANİME TAKİPLERİ
-                // =====================================
-
-                for (
-                    const follow of animeFollows
-                ) {
                     try {
+                        let anime = null;
 
-                        // =================================
-                        // ANIME ID
-                        // =================================
+                        // ID kayıtlıysa direkt kullan
+                        if (follow.mediaId) {
+                            try {
+                                anime = await getAnime(
+                                    follow.mediaId
+                                );
+                            } catch {
+                                anime = null;
+                            }
+                        }
 
-                        let animeId =
-                            follow.mediaId;
-
-                        let anime;
-
-                        if (!animeId) {
-
+                        // ID yoksa veya bozuksa ara
+                        if (!anime) {
                             anime =
-                                await searchAnime(
+                                await findAnime(
                                     follow.title
                                 );
 
@@ -472,100 +259,35 @@ async function checkAll(
                                     `⚠️ Anime bulunamadı: ${follow.title}`
                                 );
 
-                                await sleep(
-                                    1500
-                                );
-
+                                await sleep(1500);
                                 continue;
                             }
 
-                            animeId =
+                            follow.mediaId =
                                 anime.mal_id;
 
-                            follow.mediaId =
-                                animeId;
-
                             changed = true;
-
-                        } else {
-
-                            anime =
-                                await getAnimeInfo(
-                                    animeId
-                                );
-
-                            /*
-                             * ID artık geçersizse
-                             * tekrar arama yap.
-                             */
-
-                            if (!anime) {
-
-                                anime =
-                                    await searchAnime(
-                                        follow.title
-                                    );
-
-                                if (!anime) {
-                                    continue;
-                                }
-
-                                animeId =
-                                    anime.mal_id;
-
-                                follow.mediaId =
-                                    animeId;
-
-                                changed = true;
-                            }
                         }
 
-                        // =================================
-                        // BÖLÜM
-                        // =================================
+                        const episode =
+                            Number(anime.episodes);
 
-                        const currentEpisode =
-                            getEpisode(
-                                anime
-                            );
-
-                        /*
-                         * Jikan henüz bölüm bilgisini
-                         * vermiyorsa takip güncellenmez.
-                         */
-
+                        // Bölüm sayısı henüz bilinmiyorsa
                         if (
-                            currentEpisode === null
+                            !Number.isFinite(episode) ||
+                            episode <= 0
                         ) {
-                            console.log(
-                                `ℹ️ ${follow.title} için bölüm bilgisi yok.`
-                            );
-
-                            await sleep(
-                                1500
-                            );
-
+                            await sleep(1500);
                             continue;
                         }
 
-                        // =================================
-                        // İLK SENKRONİZASYON
-                        // =================================
-
-                        /*
-                         * Kullanıcı ilk kez takip ettiğinde
-                         * mevcut bölümü kaydet.
-                         *
-                         * Eski bölümleri DM olarak gönderme.
-                         */
-
+                        // İlk senkronizasyon
                         if (
                             follow.lastEpisode === null ||
                             follow.lastEpisode === undefined
                         ) {
-
                             follow.lastEpisode =
-                                currentEpisode;
+                                episode;
 
                             follow.lastChecked =
                                 Date.now();
@@ -573,84 +295,38 @@ async function checkAll(
                             changed = true;
 
                             console.log(
-                                `🎬 ${getAnimeTitle(anime, follow.title)} ilk kez senkronize edildi → Bölüm ${currentEpisode}`
+                                `🎬 ${getTitle(anime, follow.title)} → mevcut bölüm ${episode} kaydedildi.`
                             );
 
-                            await sleep(
-                                1500
-                            );
-
+                            await sleep(1500);
                             continue;
                         }
 
-                        const lastEpisode =
+                        const oldEpisode =
                             Number(
                                 follow.lastEpisode
                             );
 
-                        // =================================
-                        // AYNI BÖLÜM
-                        // =================================
-
+                        // Yeni bölüm
                         if (
-                            currentEpisode ===
-                            lastEpisode
+                            episode > oldEpisode
                         ) {
-
-                            follow.lastChecked =
-                                Date.now();
-
-                            changed = true;
-
-                            await sleep(
-                                1200
-                            );
-
-                            continue;
-                        }
-
-                        // =================================
-                        // YENİ BÖLÜM
-                        // =================================
-
-                        if (
-                            currentEpisode >
-                            lastEpisode
-                        ) {
-
-                            const oldEpisode =
-                                lastEpisode;
-
                             follow.lastEpisode =
-                                currentEpisode;
+                                episode;
 
                             follow.lastChecked =
                                 Date.now();
 
                             changed = true;
 
-                            /*
-                             * Eğer birden fazla bölüm
-                             * atlanmışsa tek DM yerine
-                             * mevcut son bölümü bildiriyoruz.
-                             */
-
-                            await sendNotification(
+                            await sendDM(
                                 client,
                                 userId,
                                 anime,
-                                oldEpisode,
-                                currentEpisode
+                                episode
                             );
 
                         } else {
-
-                            /*
-                             * API'den daha düşük bir
-                             * bölüm geldiyse geriye
-                             * düşürme.
-                             */
-
                             follow.lastChecked =
                                 Date.now();
 
@@ -658,25 +334,13 @@ async function checkAll(
                         }
 
                     } catch (error) {
-
                         console.error(
-                            `❌ ${follow.title} anime kontrolü başarısız:`,
+                            `❌ Anime kontrol hatası (${follow.title}):`,
                             error.message
-                        );
-
-                        await sleep(
-                            2500
                         );
                     }
 
-                    /*
-                     * Jikan rate limitlerini
-                     * azaltmak için bekleme.
-                     */
-
-                    await sleep(
-                        1500
-                    );
+                    await sleep(1500);
                 }
             }
         }
@@ -686,54 +350,21 @@ async function checkAll(
         }
 
     } finally {
-        checking = false;
+        running = false;
     }
 }
 
-// =====================================================
-// SİSTEMİ BAŞLAT
-// =====================================================
-
-module.exports = function startAnimeTracker(
-    client
-) {
+module.exports = function startAnimeTracker(client) {
     console.log(
         "🎬 Anime takip sistemi başlatıldı."
     );
 
-    /*
-     * Bot açıldıktan 20 saniye sonra
-     * ilk kontrol.
-     */
+    setTimeout(() => {
+        checkAll(client).catch(console.error);
+    }, 20000);
 
-    setTimeout(
-        () => {
-            checkAll(client)
-                .catch(error => {
-                    console.error(
-                        "❌ Anime takip kontrol hatası:",
-                        error
-                    );
-                });
-        },
-        20000
-    );
-
-    /*
-     * Her 10 dakikada bir kontrol.
-     */
-
-    setInterval(
-        () => {
-            checkAll(client)
-                .catch(error => {
-                    console.error(
-                        "❌ Anime takip kontrol hatası:",
-                        error
-                    );
-                });
-        },
-        CHECK_INTERVAL
-    );
+    setInterval(() => {
+        checkAll(client).catch(console.error);
+    }, CHECK_INTERVAL);
 };
 

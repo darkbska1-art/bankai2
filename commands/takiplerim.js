@@ -1,161 +1,77 @@
 
-const {
-    EmbedBuilder
-} = require("discord.js");
-
 const fs = require("fs");
 const path = require("path");
+const { EmbedBuilder } = require("discord.js");
 
-const DATA_FILE = path.join(
-    process.cwd(),
-    "takipler.json"
-);
-
-// =====================================================
-// JSON
-// =====================================================
+const FILE = path.join(process.cwd(), "takipler.json");
 
 function loadData() {
+    if (!fs.existsSync(FILE)) {
+        fs.writeFileSync(FILE, "{}", "utf8");
+    }
 
     try {
-
-        if (!fs.existsSync(DATA_FILE)) {
-            fs.writeFileSync(
-                DATA_FILE,
-                "{}",
-                "utf8"
-            );
-        }
-
         return JSON.parse(
-            fs.readFileSync(
-                DATA_FILE,
-                "utf8"
-            )
+            fs.readFileSync(FILE, "utf8")
         );
-
-    } catch (error) {
-
-        console.error(
-            "❌ takipler.json okunamadı:",
-            error
-        );
-
+    } catch {
         return {};
     }
 }
 
-// =====================================================
-// KOMUT
-// =====================================================
-
 module.exports = {
-
     name: "takiplerim",
+    aliases: ["takiplistem", "takipler"],
 
-    aliases: [
-        "takiplistem",
-        "takiplistesi"
-    ],
-
-    description:
-        "Takip ettiğin anime ve mangaları gösterir.",
+    description: "Takip ettiğin anime ve mangaları gösterir.",
 
     async execute(message) {
+        if (!message.guild) {
+            return message.reply(
+                "❌ Bu komut sunucuda kullanılabilir."
+            );
+        }
 
-        const data =
-            loadData();
+        const data = loadData();
 
         const follows =
-            data?.[
-                message.guild.id
-            ]?.[
-                message.author.id
-            ] || [];
+            data[message.guild.id]?.[message.author.id] || [];
 
-        const embed =
-            new EmbedBuilder()
-                .setColor("#000000")
-                .setTitle("📚 Takip Listem")
-                .setFooter({
-                    text:
-                        `${message.guild.name} • Takip Sistemi`
-                })
-                .setTimestamp();
-
-        // =================================================
-        // BOŞ
-        // =================================================
-
-        if (follows.length === 0) {
-
-            embed.setDescription(
-                "📭 Henüz hiçbir anime veya manga takip etmiyorsun.\n\n" +
-                "`B!takip One Piece`"
-            );
-
-            return message.reply({
-                embeds: [embed]
-            });
-        }
-
-        // =================================================
-        // ANİME
-        // =================================================
-
-        const anime =
-            follows.filter(
-                x => x.type === "anime"
-            );
-
-        // =================================================
-        // MANGA
-        // =================================================
-
-        const manga =
-            follows.filter(
-                x => x.type === "manga"
-            );
-
-        // =================================================
-        // ANİME LİSTESİ
-        // =================================================
-
-        if (anime.length > 0) {
-
-            embed.addFields({
-                name: "🎬 Anime",
-                value:
-                    anime
-                        .map(
-                            (x, i) =>
-                                `**${i + 1}.** ${x.title}`
-                        )
-                        .join("\n")
-            });
-        }
-
-        // =================================================
-        // MANGA LİSTESİ
-        // =================================================
-
-        if (manga.length > 0) {
-
-            embed.addFields({
-                name: "📖 Manga",
-                value:
-                    manga
-                        .map(
-                            (x, i) =>
-                                `**${i + 1}.** ${x.title}`
-                        )
-                        .join("\n")
-            });
-        }
-
-        embed.setDescription(
-            `Toplam **${follows.length}** içerik takip ediyorsun.`
+        const anime = follows.filter(
+            x => x.type === "anime"
         );
+
+        const manga = follows.filter(
+            x => x.type === "manga"
+        );
+
+        const embed = new EmbedBuilder()
+            .setColor("#000000")
+            .setTitle("📋 Takip Listem")
+            .setFooter({
+                text: "Bankai Takip Sistemi"
+            })
+            .setTimestamp();
+
+        embed.addFields({
+            name: `🎬 Anime (${anime.length})`,
+            value: anime.length
+                ? anime
+                    .map(x => `• **${x.title}**`)
+                    .join("\n")
+                    .slice(0, 1024)
+                : "Anime takip etmiyorsun."
+        });
+
+        embed.addFields({
+            name: `📖 Manga (${manga.length})`,
+            value: manga.length
+                ? manga
+                    .map(x => `• **${x.title}**`)
+                    .join("\n")
+                    .slice(0, 1024)
+                : "Manga takip etmiyorsun."
+        });
 
         return message.reply({
             embeds: [embed]

@@ -693,6 +693,142 @@ client.on("interactionCreate", async interaction => {
     }
 });
 // =====================================================
+// 🧠 QUIZ BUTONLARI
+// =====================================================
+
+if (interaction.isButton() && interaction.customId.startsWith("quiz_")) {
+
+    const parts = interaction.customId.split("_");
+
+    // quiz_guildId_channelId_timestamp_index
+    const guildId = parts[1];
+    const channelId = parts[2];
+    const quizId = `${parts[1]}_${parts[2]}_${parts[3]}`;
+    const answerIndex = Number(parts[4]);
+
+    const quizCommand = client.commands.get("quiz");
+
+    if (!quizCommand) {
+        return interaction.reply({
+            content: "❌ Quiz sistemi bulunamadı.",
+            ephemeral: true
+        });
+    }
+
+    const active = quizCommand.activeQuizzes.get(channelId);
+
+    // Quiz artık aktif değil
+    if (!active || active.id !== quizId) {
+        return interaction.reply({
+            content: "⏰ Bu quiz artık aktif değil.",
+            ephemeral: true
+        });
+    }
+
+    // Daha önce cevaplandıysa
+    if (active.answered) {
+        return interaction.reply({
+            content: "❌ Bu quiz zaten cevaplandı!",
+            ephemeral: true
+        });
+    }
+
+    active.answered = true;
+
+    const quiz = active.question;
+
+    // =================================================
+    // DOĞRU CEVAP
+    // =================================================
+
+    if (answerIndex === quiz.answer) {
+
+        const buttons = quiz.options.map((option, index) => {
+
+            return new ButtonBuilder()
+                .setCustomId(
+                    `quiz_${active.id}_${index}`
+                )
+                .setLabel(
+                    `${String.fromCharCode(65 + index)}) ${option}`
+                )
+                .setStyle(
+                    index === quiz.answer
+                        ? ButtonStyle.Success
+                        : ButtonStyle.Secondary
+                )
+                .setDisabled(true);
+        });
+
+        const row = new ActionRowBuilder()
+            .addComponents(buttons);
+
+        const embed = new EmbedBuilder()
+            .setColor("#000000")
+            .setTitle("🎉 Doğru Cevap!")
+            .setDescription(
+                `🧠 **${quiz.question}**\n\n` +
+                `✅ **${interaction.user}** doğru cevap verdi!\n\n` +
+                `🎯 **Cevap:** ${String.fromCharCode(65 + quiz.answer)}) ${quiz.options[quiz.answer]}`
+            )
+            .setFooter({
+                text: "Bankai Quiz"
+            });
+
+        quizCommand.activeQuizzes.delete(channelId);
+
+        return interaction.update({
+            embeds: [embed],
+            components: [row]
+        });
+    }
+
+    // =================================================
+    // YANLIŞ CEVAP
+    // =================================================
+
+    const buttons = quiz.options.map((option, index) => {
+
+        return new ButtonBuilder()
+            .setCustomId(
+                `quiz_${active.id}_${index}`
+            )
+            .setLabel(
+                `${String.fromCharCode(65 + index)}) ${option}`
+            )
+            .setStyle(
+                index === answerIndex
+                    ? ButtonStyle.Danger
+                    : index === quiz.answer
+                        ? ButtonStyle.Success
+                        : ButtonStyle.Secondary
+            )
+            .setDisabled(true);
+    });
+
+    const row = new ActionRowBuilder()
+        .addComponents(buttons);
+
+    const embed = new EmbedBuilder()
+        .setColor("#000000")
+        .setTitle("❌ Yanlış Cevap!")
+        .setDescription(
+            `🧠 **${quiz.question}**\n\n` +
+            `❌ **${interaction.user}** yanlış cevap verdi!\n\n` +
+            `✅ **Doğru cevap:** ${String.fromCharCode(65 + quiz.answer)}) ${quiz.options[quiz.answer]}`
+        )
+        .setFooter({
+            text: "Bankai Quiz"
+        });
+
+    quizCommand.activeQuizzes.delete(channelId);
+
+    return interaction.update({
+        embeds: [embed],
+        components: [row]
+    });
+}
+// =====================================================
 // ⚡ SLASH KOMUTLARI
 // =====================================================
 

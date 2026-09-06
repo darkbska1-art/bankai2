@@ -9,68 +9,88 @@ const {
 const Parser = require("rss-parser");
 
 const parser = new Parser({
-    timeout: 10000
+    timeout: 15000,
+    headers: {
+        "User-Agent": "Mozilla/5.0"
+    }
 });
 
 // =====================================================
-// HABER KATEGORİLERİ
+// KATEGORİLER
 // =====================================================
 
 const categories = {
     turkiye: {
-        name: "🇹🇷 Türkiye",
-        description: "Türkiye gündeminden son haberler",
+        name: "Türkiye",
+        emoji: "🇹🇷",
+        description: "Türkiye gündeminden haberler",
         url: "https://news.google.com/rss/headlines/section/topic/NATION?hl=tr&gl=TR&ceid=TR:tr"
     },
 
     dunya: {
-        name: "🌍 Dünya",
-        description: "Dünya gündeminden son haberler",
+        name: "Dünya",
+        emoji: "🌍",
+        description: "Dünya gündeminden haberler",
         url: "https://news.google.com/rss/headlines/section/topic/WORLD?hl=tr&gl=TR&ceid=TR:tr"
     },
 
     spor: {
-        name: "⚽ Spor",
-        description: "Spor dünyasından son haberler",
+        name: "Spor",
+        emoji: "⚽",
+        description: "Spor dünyasından haberler",
         url: "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=tr&gl=TR&ceid=TR:tr"
     },
 
     teknoloji: {
-        name: "💻 Teknoloji",
-        description: "Teknoloji dünyasından son haberler",
+        name: "Teknoloji",
+        emoji: "💻",
+        description: "Teknoloji dünyasından haberler",
         url: "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=tr&gl=TR&ceid=TR:tr"
     },
 
     magazin: {
-        name: "🎬 Magazin",
-        description: "Magazin dünyasından son haberler",
+        name: "Magazin",
+        emoji: "🎬",
+        description: "Magazin dünyasından haberler",
         url: "https://news.google.com/rss/search?q=magazin&hl=tr&gl=TR&ceid=TR:tr"
     },
 
     oyun: {
-        name: "🎮 Oyun",
-        description: "Oyun dünyasından son haberler",
+        name: "Oyun",
+        emoji: "🎮",
+        description: "Oyun dünyasından haberler",
         url: "https://news.google.com/rss/search?q=oyun&hl=tr&gl=TR&ceid=TR:tr"
     }
 };
 
 // =====================================================
-// HABERLERİ AL
+// RSS HABERLERİNİ AL
 // =====================================================
 
 async function getNews(category) {
     const selected = categories[category];
 
     if (!selected) {
-        throw new Error("Geçersiz haber kategorisi.");
+        throw new Error("Geçersiz kategori.");
     }
 
-    const feed = await parser.parseURL(selected.url);
+    try {
+        const feed = await parser.parseURL(selected.url);
 
-    return {
-        title: selected.name,
-        items: feed.items || []
-    };
+        return {
+            title: selected.name,
+            emoji: selected.emoji,
+            items: feed.items || []
+        };
+
+    } catch (error) {
+        console.error(
+            `❌ ${category} RSS hatası:`,
+            error.message
+        );
+
+        throw error;
+    }
 }
 
 // =====================================================
@@ -80,55 +100,74 @@ async function getNews(category) {
 function createCategoryMenu(category) {
     const menu = new StringSelectMenuBuilder()
         .setCustomId("haber_category")
-        .setPlaceholder("📰 Haber kategorisi seç...")
-        .addOptions(
-            Object.entries(categories).map(([key, data]) => ({
-                label: data.name.replace(/^[^\s]+\s/, ""),
-                description: data.description,
-                value: key,
-                emoji: data.name.match(/^\S+/)?.[0] || "📰",
-                default: key === category
-            }))
+        .setPlaceholder("📰 Haber kategorisi seç...");
+
+    for (const [key, data] of Object.entries(categories)) {
+        menu.addOptions({
+            label: data.name,
+            description: data.description,
+            value: key,
+            emoji: data.emoji,
+            default: key === category
+        });
+    }
+
+    return new ActionRowBuilder()
+        .addComponents(menu);
+}
+
+// =====================================================
+// NAVİGASYON BUTONLARI
+// =====================================================
+
+function createNavigationButtons(
+    category,
+    page,
+    totalPages
+) {
+    return new ActionRowBuilder()
+        .addComponents(
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `haber_prev_${category}_${page}`
+                )
+                .setEmoji("◀️")
+                .setLabel("Önceki")
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(page <= 0),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `haber_refresh_${category}_${page}`
+                )
+                .setEmoji("🔄")
+                .setLabel("Yenile")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `haber_next_${category}_${page}`
+                )
+                .setEmoji("▶️")
+                .setLabel("Sonraki")
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(
+                    page >= totalPages - 1
+                )
         );
-
-    return new ActionRowBuilder().addComponents(menu);
 }
 
 // =====================================================
-// SAYFALAMA BUTONLARI
+// EMBED OLUŞTUR
 // =====================================================
 
-function createButtons(category, page, totalPages) {
-    const row = new ActionRowBuilder();
-
-    row.addComponents(
-        new ButtonBuilder()
-            .setCustomId(`haber_prev_${category}_${page}`)
-            .setEmoji("◀️")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(page <= 0),
-
-        new ButtonBuilder()
-            .setCustomId(`haber_refresh_${category}_${page}`)
-            .setEmoji("🔄")
-            .setLabel("Yenile")
-            .setStyle(ButtonStyle.Secondary),
-
-        new ButtonBuilder()
-            .setCustomId(`haber_next_${category}_${page}`)
-            .setEmoji("▶️")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(page >= totalPages - 1)
-    );
-
-    return row;
-}
-
-// =====================================================
-// HABER EMBED
-// =====================================================
-
-function createNewsEmbed(news, category, page, totalPages) {
+function createNewsEmbed(
+    news,
+    category,
+    page,
+    totalPages
+) {
     const start = page * 10;
 
     const items = news.items.slice(
@@ -139,19 +178,24 @@ function createNewsEmbed(news, category, page, totalPages) {
     let description = "";
 
     if (items.length === 0) {
+
         description =
             "❌ Bu kategoride gösterilecek haber bulunamadı.";
+
     } else {
+
         items.forEach((haber, index) => {
-            const number = start + index + 1;
+
+            const number =
+                start + index + 1;
 
             let title =
                 haber.title ||
                 "Başlık bulunamadı";
 
-            if (title.length > 150) {
+            if (title.length > 140) {
                 title =
-                    title.substring(0, 147) +
+                    title.substring(0, 137) +
                     "...";
             }
 
@@ -162,10 +206,12 @@ function createNewsEmbed(news, category, page, totalPages) {
                 `**${number}. [${title}](${link})**\n`;
 
             if (haber.pubDate) {
+
                 const date =
                     new Date(haber.pubDate);
 
                 if (!isNaN(date.getTime())) {
+
                     description +=
                         `🕐 <t:${Math.floor(
                             date.getTime() / 1000
@@ -179,17 +225,21 @@ function createNewsEmbed(news, category, page, totalPages) {
 
     return new EmbedBuilder()
         .setColor(0x000000)
-        .setTitle(`📰 ${news.title}`)
+        .setTitle(
+            `${news.emoji} ${news.title} Haberleri`
+        )
         .setDescription(description)
         .addFields(
             {
                 name: "📄 Sayfa",
-                value: `${page + 1} / ${totalPages}`,
+                value:
+                    `\`${page + 1} / ${totalPages}\``,
                 inline: true
             },
             {
-                name: "🗞️ Haber Sayısı",
-                value: `${news.items.length}`,
+                name: "🗞️ Toplam Haber",
+                value:
+                    `\`${news.items.length}\``,
                 inline: true
             }
         )
@@ -200,7 +250,7 @@ function createNewsEmbed(news, category, page, totalPages) {
 }
 
 // =====================================================
-// HABER GÖSTER
+// HABER PANELİNİ GÖSTER
 // =====================================================
 
 async function showNews(
@@ -208,50 +258,83 @@ async function showNews(
     category,
     page = 0
 ) {
-    const news =
-        await getNews(category);
+    try {
 
-    const totalPages =
-        Math.max(
-            1,
-            Math.ceil(
-                news.items.length / 10
+        const news =
+            await getNews(category);
+
+        const totalPages =
+            Math.max(
+                1,
+                Math.ceil(
+                    news.items.length / 10
+                )
+            );
+
+        page = Math.max(
+            0,
+            Math.min(
+                page,
+                totalPages - 1
             )
         );
 
-    if (page < 0) {
-        page = 0;
-    }
+        const embed =
+            createNewsEmbed(
+                news,
+                category,
+                page,
+                totalPages
+            );
 
-    if (page >= totalPages) {
-        page = totalPages - 1;
-    }
+        const categoryMenu =
+            createCategoryMenu(category);
 
-    const embed =
-        createNewsEmbed(
-            news,
-            category,
-            page,
-            totalPages
+        const navigation =
+            createNavigationButtons(
+                category,
+                page,
+                totalPages
+            );
+
+        await interaction.update({
+            embeds: [embed],
+            components: [
+                categoryMenu,
+                navigation
+            ]
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ Haber gösterme hatası:",
+            error
         );
 
-    const categoryMenu =
-        createCategoryMenu(category);
+        const errorEmbed =
+            new EmbedBuilder()
+                .setColor(0x000000)
+                .setTitle(
+                    "❌ Haberler Alınamadı"
+                )
+                .setDescription(
+                    "Haber kaynağına şu anda ulaşılamıyor.\n\n" +
+                    "Birkaç saniye sonra tekrar deneyin."
+                );
 
-    const navigationRow =
-        createButtons(
-            category,
-            page,
-            totalPages
-        );
+        if (interaction.deferred) {
+            return interaction.editReply({
+                embeds: [errorEmbed],
+                components: []
+            });
+        }
 
-    await interaction.update({
-        embeds: [embed],
-        components: [
-            categoryMenu,
-            navigationRow
-        ]
-    });
+        return interaction.update({
+            embeds: [errorEmbed],
+            components: []
+        });
+    }
 }
 
 // =====================================================
@@ -259,6 +342,7 @@ async function showNews(
 // =====================================================
 
 module.exports = {
+
     name: "haber",
 
     aliases: [
@@ -267,7 +351,9 @@ module.exports = {
     ],
 
     async execute(message) {
+
         try {
+
             const category =
                 "turkiye";
 
@@ -295,8 +381,8 @@ module.exports = {
                     category
                 );
 
-            const navigationRow =
-                createButtons(
+            const navigation =
+                createNavigationButtons(
                     category,
                     0,
                     totalPages
@@ -306,11 +392,12 @@ module.exports = {
                 embeds: [embed],
                 components: [
                     categoryMenu,
-                    navigationRow
+                    navigation
                 ]
             });
 
         } catch (error) {
+
             console.error(
                 "❌ Haber sistemi hatası:",
                 error

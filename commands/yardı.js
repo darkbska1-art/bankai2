@@ -109,7 +109,7 @@ data: new SlashCommandBuilder()
                     ["boostkanal", "boost kanalını ayarlar."],
                     ["boostkapat", "boost mesajını devre dışı bırakır."],
                     ["seviyesistem açmak için #kanal/kapat", "seviye sistemini ayarlar."],
-                    ["seviyesıralama", "seviye sıralamasını gösterir."],
+                    ["seviyesiralama", "seviye sıralamasını gösterir."],
                     ["otorol", "B!otorol @üye @BotRol"],
                     ["otorolkapat", "Otorol sistemini kapatır."],
                 ]

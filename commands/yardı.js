@@ -108,7 +108,7 @@ data: new SlashCommandBuilder()
                     ["ticketayarla", "Ticket sistemini ayarlar."],
                     ["boostkanal", "boost kanalını ayarlar."],
                     ["boostkapat", "boost mesajını devre dışı bırakır."],
-                    ["seviyesistem aç/kapat", "seviye sistemini ayarlar."],
+                    ["seviyesistem açmak için #kanal/kapat", "seviye sistemini ayarlar."],
                     ["seviyesıralama", "seviye sıralamasını gösterir."],
                     ["otorol", "B!otorol @üye @BotRol"],
                     ["otorolkapat", "Otorol sistemini kapatır."],

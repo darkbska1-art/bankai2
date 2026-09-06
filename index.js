@@ -16,7 +16,11 @@ const {
     Partials,
     Collection,
     REST,
-    Routes
+    Routes,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
 } = require("discord.js");
 
 
@@ -518,7 +522,175 @@ function formatPollTime(ms) {
 
     return `${hours} saat`;
 }
+const haber = require("./commands/haber.js");
 
+client.on("interactionCreate", async interaction => {
+    try {
+        if (!interaction.isButton()) return;
+
+        const id = interaction.customId;
+
+        // ==============================
+        // HABER KATEGORİLERİ
+        // ==============================
+
+        if (id.startsWith("haber_category_")) {
+            const category = id.replace(
+                "haber_category_",
+                ""
+            );
+
+            await haber.showNews(
+                interaction,
+                category,
+                0
+            );
+
+            return;
+        }
+
+        // ==============================
+        // HABER SAYFALAMA
+        // ==============================
+
+        if (id.startsWith("haber_prev_")) {
+            const parts = id.split("_");
+
+            const category = parts[2];
+            const page = Number(parts[3]);
+
+            await haber.showNews(
+                interaction,
+                category,
+                page - 1
+            );
+
+            return;
+        }
+
+        if (id.startsWith("haber_next_")) {
+            const parts = id.split("_");
+
+            const category = parts[2];
+            const page = Number(parts[3]);
+
+            await haber.showNews(
+                interaction,
+                category,
+                page + 1
+            );
+
+            return;
+        }
+
+        // ==============================
+        // HABER YENİLE
+        // ==============================
+
+        if (id.startsWith("haber_refresh_")) {
+            const parts = id.split("_");
+
+            const category = parts[2];
+            const page = Number(parts[3]);
+
+            await haber.showNews(
+                interaction,
+                category,
+                page
+            );
+
+            return;
+        }
+
+    } catch (error) {
+        console.error(
+            "❌ Buton hatası:",
+            error
+        );
+
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: "❌ İşlem sırasında bir hata oluştu.",
+                ephemeral: true
+            }).catch(() => {});
+        }
+    }
+});
+const emojiler = require("./commands/emojiler.js");
+
+client.on("interactionCreate", async interaction => {
+    if (!interaction.isButton()) return;
+
+    try {
+        if (interaction.customId.startsWith("emojiler_prev_")) {
+            const page = Number(
+                interaction.customId.split("_")[2]
+            );
+
+            const emojis = [...interaction.guild.emojis.cache.values()]
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            const totalPages = Math.max(
+                1,
+                Math.ceil(emojis.length / 20)
+            );
+
+            const newPage = Math.max(0, page - 1);
+
+            await interaction.update({
+                embeds: [
+                    emojiler.createEmbed(
+                        interaction.guild,
+                        emojis,
+                        newPage
+                    )
+                ],
+                components: totalPages > 1
+                    ? [emojiler.createButtons(newPage, totalPages)]
+                    : []
+            });
+
+            return;
+        }
+
+        if (interaction.customId.startsWith("emojiler_next_")) {
+            const page = Number(
+                interaction.customId.split("_")[2]
+            );
+
+            const emojis = [...interaction.guild.emojis.cache.values()]
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            const totalPages = Math.max(
+                1,
+                Math.ceil(emojis.length / 20)
+            );
+
+            const newPage = Math.min(
+                totalPages - 1,
+                page + 1
+            );
+
+            await interaction.update({
+                embeds: [
+                    emojiler.createEmbed(
+                        interaction.guild,
+                        emojis,
+                        newPage
+                    )
+                ],
+                components: totalPages > 1
+                    ? [emojiler.createButtons(newPage, totalPages)]
+                    : []
+            });
+
+            return;
+        }
+
+    } catch (error) {
+        console.error("❌ Emoji buton hatası:", error);
+    }
+});
 // =====================================================
 // ⚡ SLASH KOMUTLARI
 // =====================================================
@@ -596,13 +768,294 @@ try {
     console.error("❌ Davet sistemi yüklenemedi:");
     console.error(error);
 }
+// =====================================================
+// 🎭 BUTON ROL PANELİ
+// =====================================================
 
+client.on("interactionCreate", async interaction => {
 
+    if (!interaction.isStringSelectMenu()) return;
 
+    if (!interaction.customId.startsWith("rolpanel_")) {
+        return;
+    }
 
+    try {
+        const parts = interaction.customId.split("_");
 
+        const guildId = parts[1];
+        const channelId = parts[2];
 
+        // Panelin doğru sunucuda olup olmadığını kontrol et
+        if (interaction.guildId !== guildId) {
+            return interaction.reply({
+                content: "❌ Bu rol paneli bu sunucuya ait değil.",
+                ephemeral: true
+            });
+        }
 
+        const guild = interaction.guild;
+        const member = interaction.member;
+        const botMember = guild.members.me;
+
+        if (!botMember) {
+            return interaction.reply({
+                content: "❌ Bot üyesi bulunamadı.",
+                ephemeral: true
+            });
+        }
+
+        const addedRoles = [];
+        const removedRoles = [];
+        const failedRoles = [];
+
+        // =====================================================
+        // ROLLERİ VER / ÇIKAR
+        // =====================================================
+
+        for (const roleId of interaction.values) {
+
+            const role = guild.roles.cache.get(roleId);
+
+            if (!role) {
+                failedRoles.push("Bilinmeyen rol");
+                continue;
+            }
+
+            // Bot bu rolü yönetebilir mi?
+            if (
+                role.managed ||
+                role.position >= botMember.roles.highest.position
+            ) {
+                failedRoles.push(role.name);
+                continue;
+            }
+
+            try {
+
+                if (member.roles.cache.has(role.id)) {
+
+                    // Rol varsa çıkar
+                    await member.roles.remove(
+                        role,
+                        "Rol seçim paneli"
+                    );
+
+                    removedRoles.push(role);
+
+                } else {
+
+                    // Rol yoksa ver
+                    await member.roles.add(
+                        role,
+                        "Rol seçim paneli"
+                    );
+
+                    addedRoles.push(role);
+                }
+
+            } catch (error) {
+
+                console.error(
+                    `❌ ${role.name} rolünde hata:`,
+                    error
+                );
+
+                failedRoles.push(role.name);
+            }
+        }
+
+        // =====================================================
+        // 📊 PANELDEKİ ROL SAYILARINI GÜNCELLE
+        // =====================================================
+
+        const embed = interaction.message.embeds[0];
+
+        if (embed) {
+
+            const oldDescription = embed.description || "";
+
+            // Mevcut rollerin ID'lerini select menu'den al
+            const menu = interaction.message.components
+                .flatMap(row => row.components)
+                .find(component =>
+                    component.type === 3 &&
+                    component.customId?.startsWith("rolpanel_")
+                );
+
+            let panelRoles = [];
+
+            if (menu && menu.options) {
+                panelRoles = menu.options.map(option => option.value);
+            }
+
+            // Rol listesini yeniden oluştur
+            if (panelRoles.length) {
+
+                const roleLines = panelRoles
+                    .map(roleId => {
+
+                        const role =
+                            guild.roles.cache.get(roleId);
+
+                        if (!role) return null;
+
+                        const count = role.members.size;
+
+                        // Eski embedden emoji bulmaya çalış
+                        let emoji = "";
+
+                        const oldLine = oldDescription
+                            .split("\n")
+                            .find(line =>
+                                line.includes(`<@&${role.id}>`)
+                            );
+
+                        if (oldLine) {
+
+                            const match =
+                                oldLine.match(
+                                    /^(.+?)\s*<@&/
+                                );
+
+                            if (match) {
+                                emoji = match[1].trim();
+                            }
+                        }
+
+                        return `${emoji} ${role} — **${count} kişi**`;
+                    })
+                    .filter(Boolean)
+                    .join("\n");
+
+                // Açıklamadaki eski rol listesini güncelle
+                const roleSectionStart =
+                    oldDescription.indexOf("**Mevcut Roller:**");
+
+                const roleSectionEnd =
+                    oldDescription.indexOf(
+                        "\n\n➕",
+                        roleSectionStart
+                    );
+
+                let newDescription;
+
+                if (
+                    roleSectionStart !== -1 &&
+                    roleSectionEnd !== -1
+                ) {
+
+                    const before =
+                        oldDescription.slice(
+                            0,
+                            roleSectionStart
+                        );
+
+                    const after =
+                        oldDescription.slice(
+                            roleSectionEnd
+                        );
+
+                    newDescription =
+                        before +
+                        "**Mevcut Roller:**\n" +
+                        roleLines +
+                        after;
+
+                } else {
+
+                    newDescription = oldDescription;
+                }
+
+                // Embed'i güncelle
+                const updatedEmbed =
+                    EmbedBuilder.from(embed)
+                        .setDescription(newDescription);
+
+                await interaction.message.edit({
+                    embeds: [updatedEmbed]
+                });
+            }
+        }
+
+        // =====================================================
+        // 📋 KULLANICIYA SONUÇ
+        // =====================================================
+
+        let description = "";
+
+        if (addedRoles.length) {
+
+            description +=
+                "➕ **Alınan Roller:**\n" +
+                addedRoles
+                    .map(role => `• ${role}`)
+                    .join("\n") +
+                "\n\n";
+        }
+
+        if (removedRoles.length) {
+
+            description +=
+                "➖ **Çıkarılan Roller:**\n" +
+                removedRoles
+                    .map(role => `• ${role}`)
+                    .join("\n") +
+                "\n\n";
+        }
+
+        if (failedRoles.length) {
+
+            description +=
+                "⚠️ **İşlem yapılamayan roller:**\n" +
+                failedRoles
+                    .map(role => `• ${role}`)
+                    .join("\n") +
+                "\n\n";
+        }
+
+        if (!description) {
+
+            description =
+                "❌ Herhangi bir rol değişikliği yapılamadı.";
+        }
+
+        // =====================================================
+        // 📊 SAYILAR GÜNCELLENDİ MESAJI
+        // =====================================================
+
+        description +=
+            "📊 Rol kullanım sayıları güncellendi.";
+
+        await interaction.reply({
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#000000")
+                    .setTitle("🎭 Rol İşlemi")
+                    .setDescription(description)
+            ],
+            ephemeral: true
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ Emoji rol paneli hatası:",
+            error
+        );
+
+        if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+            await interaction.reply({
+                content:
+                    "❌ Rol işlemi sırasında bir hata oluştu.",
+                ephemeral: true
+            }).catch(() => {});
+        }
+    }
+});
 // =====================================================
 // ⚠️ HATALAR
 // =====================================================

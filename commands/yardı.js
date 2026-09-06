@@ -88,6 +88,13 @@ data: new SlashCommandBuilder()
                     ["rolver/rolal", "Üyeye rol verir veya alır."],
                     ["sürelirol", "Üyeye süreli rol verir."],
                     ["hatırlatıcı", "Hatırlatıcı ayarlar."],
+                    ["rololuştur", "Rol oluşturur."],
+                    ["rolsil", "Rol siler."],
+                    ["kanaloluştur", "Kanal oluşturur."],
+                    ["kanalsil", "Kanal siler."],
+                    ["emoji", "Emoji hakkında bilgi verir."],
+                    ["emojiler", "Sunucudaki emojileri listeler."],
+                    ["butonrol", "Menülü rol ayarlarsınız Örnek: B!butonrol @Rol emoji"],
 
 
 
@@ -103,7 +110,8 @@ data: new SlashCommandBuilder()
                     ["ticketayarla", "Ticket sistemini ayarlar."],
                     ["boostkanal", "boost kanalını ayarlar."],
                     ["boostkapat", "boost mesajını devre dışı bırakır."],
-                    ["seviyesistem", "seviye sistemini ayarlar."],
+                    ["seviyesistem aç/kapat", "seviye sistemini ayarlar."],
+                    ["seviyesıralama", "seviye sıralamasını gösterir."],
                     ["otorol", "B!otorol @üye @BotRol"],
                     ["otorolkapat", "Otorol sistemini kapatır."],
                 ]
@@ -119,7 +127,7 @@ data: new SlashCommandBuilder()
                     ["say", "botu konuşturursun."],
                     ["ship", "iki kullanıcı arasındaki uyumu gösterir."],
                     ["adamasmaca", "adam asmaca oyunu oynarsınız."],
-                    ["sayıtahmin", "sayı tahmin oyunu oynarsınız."],
+                    ["sayitahmin", "sayı tahmin oyunu oynarsınız."],
                     ["yazıtura", "yazı tura atarsınız."],
                     ["zar", "zar atarsınız."],
                     ["kader", "kaderinizi öğrenirsiniz."],
@@ -152,6 +160,10 @@ data: new SlashCommandBuilder()
                     ["istatistik", "Bot istatistiklerini gösterir."],
                     ["avatar", "Kullanıcının avatarını gösterir."],
                     ["banner", "Kullanıcının bannerını gösterir."],
+                    ["rollerim", "Kullanıcının rollerini gösterir."],
+                    ["botdavet", "Botun davet linkini gösterir."],
+                    ["izinlerim", "Kullanıcının izinlerini gösterir."],
+                    ["sunucuprofil", "Sunucu profilini gösterir."],
                     
                 ]
             }

@@ -1,3 +1,4 @@
+
 const fs = require("fs");
 const path = require("path");
 
@@ -164,10 +165,8 @@ function startLevelSystem(client) {
         // XP KAZAN
         // =================================================
 
-        const gainedXp =
-            Math.floor(
-                Math.random() * 16
-            ) + 15;
+        // Her 10 saniyede sabit 5 XP
+        const gainedXp = 5;
 
         const oldLevel =
             user.level;
@@ -327,10 +326,7 @@ function startLevelSystem(client) {
 
         await levelChannel
             .send({
-                // Kullanıcıyı EMBED DIŞINDA etiketler
                 content: `<@${message.author.id}>`,
-
-                // Embed aynı şekilde kalır
                 embeds: [embed]
             })
             .catch(error => {
@@ -354,3 +350,4 @@ module.exports = startLevelSystem;
 module.exports.loadData = loadData;
 module.exports.saveData = saveData;
 module.exports.xpNeeded = xpNeeded;
+

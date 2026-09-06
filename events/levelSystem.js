@@ -1,4 +1,3 @@
-
 const fs = require("fs");
 const path = require("path");
 
@@ -111,6 +110,11 @@ function startLevelSystem(client) {
         }
 
         const guildData = data[guildId];
+
+        // Eski veriler için güvenlik
+        if (!guildData.users) {
+            guildData.users = {};
+        }
 
         // Sistem kapalıysa
         if (!guildData.enabled) return;
@@ -323,6 +327,10 @@ function startLevelSystem(client) {
 
         await levelChannel
             .send({
+                // Kullanıcıyı EMBED DIŞINDA etiketler
+                content: `<@${message.author.id}>`,
+
+                // Embed aynı şekilde kalır
                 embeds: [embed]
             })
             .catch(error => {
@@ -337,8 +345,6 @@ function startLevelSystem(client) {
     });
 }
 
-
-
 // =====================================================
 // EXPORT
 // =====================================================
@@ -348,4 +354,3 @@ module.exports = startLevelSystem;
 module.exports.loadData = loadData;
 module.exports.saveData = saveData;
 module.exports.xpNeeded = xpNeeded;
-

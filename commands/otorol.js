@@ -40,6 +40,7 @@ module.exports = {
 
     async execute(message) {
 
+        // Kullanıcı yetkisi
         if (!message.member.permissions.has(
             PermissionFlagsBits.ManageGuild
         )) {
@@ -55,32 +56,7 @@ module.exports = {
             });
         }
 
-        const roles = message.mentions.roles;
-
-        if (roles.size < 2) {
-            return message.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor("#000000")
-                        .setTitle("⚙️ Otorol Ayarlama")
-                        .setDescription(
-                            "Hem **üye rolünü** hem de **bot rolünü** belirtmelisin."
-                        )
-                        .addFields({
-                            name: "Kullanım",
-                            value:
-                                "`B!otorol @ÜyeRolü @BotRolü`"
-                        })
-                ]
-            });
-        }
-
-        const roleArray = [...roles.values()];
-
-        const memberRole = roleArray[0];
-        const botRole = roleArray[1];
-
-        // Botun kendi en yüksek rolünü kontrol et
+        // Botun Manage Roles yetkisi
         const botMember = message.guild.members.me;
 
         if (!botMember) {
@@ -95,43 +71,147 @@ module.exports = {
             });
         }
 
-        if (memberRole.position >= botMember.roles.highest.position) {
+        if (!botMember.permissions.has(
+            PermissionFlagsBits.ManageRoles
+        )) {
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("#000000")
+                        .setTitle("❌ Bot Yetkisi Eksik")
+                        .setDescription(
+                            "Botun **Rolleri Yönet** yetkisine sahip olması gerekiyor."
+                        )
+                ]
+            });
+        }
+
+        /*
+        ============================================
+        ROLLERİ MESAJDAKİ SIRAYA GÖRE AL
+        @Üye @Bot
+        ============================================
+        */
+
+        const roleIds = [
+            ...message.content.matchAll(/<@&(\d+)>/g)
+        ].map(match => match[1]);
+
+        if (roleIds.length < 2) {
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("#000000")
+                        .setTitle("⚙️ Otorol Ayarlama")
+                        .setDescription(
+                            "Hem **üye rolünü** hem de **bot rolünü** belirtmelisin."
+                        )
+                        .addFields({
+                            name: "Kullanım",
+                            value: "`B!otorol @ÜyeRolü @BotRolü`"
+                        })
+                ]
+            });
+        }
+
+        // Mesajdaki sırayı KESİN olarak koruyoruz
+        const memberRole = message.guild.roles.cache.get(
+            roleIds[0]
+        );
+
+        const botRole = message.guild.roles.cache.get(
+            roleIds[1]
+        );
+
+        if (!memberRole || !botRole) {
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("#000000")
+                        .setTitle("❌ Rol Bulunamadı")
+                        .setDescription(
+                            "Belirtilen rollerden biri bulunamadı."
+                        )
+                ]
+            });
+        }
+
+        // @everyone kontrolü
+        if (
+            memberRole.id === message.guild.id ||
+            botRole.id === message.guild.id
+        ) {
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("#000000")
+                        .setTitle("❌ Geçersiz Rol")
+                        .setDescription(
+                            "**@everyone** rolü otorol olarak kullanılamaz."
+                        )
+                ]
+            });
+        }
+
+        // Aynı rol kontrolü
+        if (memberRole.id === botRole.id) {
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("#000000")
+                        .setTitle("❌ Aynı Rol")
+                        .setDescription(
+                            "Üye rolü ve bot rolü aynı olamaz."
+                        )
+                ]
+            });
+        }
+
+        // Üye rolü botun altında mı?
+        if (
+            memberRole.position >=
+            botMember.roles.highest.position
+        ) {
             return message.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("#000000")
                         .setTitle("❌ Rol Hatası")
                         .setDescription(
-                            `**${memberRole.name}** rolü benim en yüksek rolümün altında olmalı.`
+                            `**${memberRole.name}** rolü botun en yüksek rolünün altında olmalı.`
                         )
                 ]
             });
         }
 
-        if (botRole.position >= botMember.roles.highest.position) {
+        // Bot rolü botun altında mı?
+        if (
+            botRole.position >=
+            botMember.roles.highest.position
+        ) {
             return message.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("#000000")
                         .setTitle("❌ Rol Hatası")
                         .setDescription(
-                            `**${botRole.name}** rolü benim en yüksek rolümün altında olmalı.`
+                            `**${botRole.name}** rolü botun en yüksek rolünün altında olmalı.`
                         )
                 ]
             });
         }
 
+        // Kaydet
         const data = loadData();
 
-        if (!data[message.guild.id]) {
-            data[message.guild.id] = {};
-        }
-
-        data[message.guild.id].memberRole = memberRole.id;
-        data[message.guild.id].botRole = botRole.id;
+        data[message.guild.id] = {
+            memberRole: memberRole.id,
+            botRole: botRole.id
+        };
 
         saveData(data);
 
+        // Başarı mesajı
         const embed = new EmbedBuilder()
             .setColor("#000000")
             .setTitle("⚙️ Otorol Ayarlandı")

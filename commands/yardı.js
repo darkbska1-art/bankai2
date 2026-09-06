@@ -83,8 +83,6 @@ data: new SlashCommandBuilder()
                     ["poll", "Anket başlatır."],
                     ["çekiliş", "Çekiliş başlatır."],
                     ["reroll" , "Çekilişi yeniden çeker."],
-                    ["seri", "Seri sayısını gösterir."],
-                    ["seriler", "Global seri sıralamasını gösterir."],
                     ["rolver/rolal", "Üyeye rol verir veya alır."],
                     ["sürelirol", "Üyeye süreli rol verir."],
                     ["hatırlatıcı", "Hatırlatıcı ayarlar."],
@@ -164,6 +162,8 @@ data: new SlashCommandBuilder()
                     ["botdavet", "Botun davet linkini gösterir."],
                     ["izinlerim", "Kullanıcının izinlerini gösterir."],
                     ["sunucuprofil", "Sunucu profilini gösterir."],
+                    ["seri", "Seri sayısını gösterir."],
+                    ["seriler", "Global seri sıralamasını gösterir."],
                     
                 ]
             }

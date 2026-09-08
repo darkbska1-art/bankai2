@@ -144,7 +144,7 @@ data: new SlashCommandBuilder()
                 commands: [
                     ["anime", "Anime arar."],
                     ["animehaber", "Anime haber kanalını ayarlarsınız ."],
-                    ["animehbaerkapat", "Anime haberi kapatır."],
+                    ["animehaberkapat", "Anime haberi kapatır."],
                     ["randomanime", "Rastgele anime gösterir."],
                 ]
             },

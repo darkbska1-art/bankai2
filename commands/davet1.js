@@ -557,74 +557,6 @@ module.exports = {
         }
 
         // =================================================
-        // 🔄 B!davet sıfırla @üye
-        // =================================================
-
-        if (
-            args[0].toLowerCase() ===
-            "sıfırla"
-        ) {
-
-            if (
-                !message.member.permissions.has(
-                    PermissionFlagsBits.ManageGuild
-                )
-            ) {
-
-                return message.reply(
-                    "❌ Bu komutu kullanmak için **Sunucuyu Yönet** yetkisine sahip olmalısın."
-                );
-            }
-
-            const user =
-                message.mentions.users.first();
-
-            if (!user) {
-
-                return message.reply(
-                    "❌ Kullanım: `B!davet sıfırla @Üye`"
-                );
-            }
-
-            delete guildData.users[
-                user.id
-            ];
-
-            for (
-                const [memberId, info]
-                of Object.entries(
-                    guildData.members
-                )
-            ) {
-
-                if (
-                    info.inviterId ===
-                    user.id
-                ) {
-
-                    delete guildData.members[
-                        memberId
-                    ];
-                }
-            }
-
-            saveData(data);
-
-            const embed =
-                createEmbed()
-                    .setTitle(
-                        "🔄 Davet İstatistikleri Sıfırlandı"
-                    )
-                    .setDescription(
-                        `${user} kullanıcısının davet istatistikleri sıfırlandı.`
-                    );
-
-            return message.reply({
-                embeds: [embed]
-            });
-        }
-
-        // =================================================
         // ❓ YARDIM
         // =================================================
 
@@ -641,7 +573,7 @@ module.exports = {
                         "`B!davet ödüller` → Davet ödülleri",
                         "`B!davet ödül 10 @Rol` → Ödül ekle",
                         "`B!davet ödülsil 10` → Ödül sil",
-                        "`B!davet sıfırla @Üye` → İstatistik sıfırla"
+                        
                     ].join("\n")
                 )
                 .setFooter({
